@@ -8,7 +8,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class AiServerApplication {
 
     public static void main(String[] args) {
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        Dotenv dotenv = Dotenv.configure()
+                .directory("/Users/wooddang-mac/Desktop/code/1. Study/Lionbackend/AiServer")
+                .ignoreIfMissing()
+                .load();
         dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
 
         SpringApplication.run(AiServerApplication.class, args);
