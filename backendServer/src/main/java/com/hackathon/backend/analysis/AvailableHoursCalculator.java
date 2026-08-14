@@ -16,22 +16,28 @@ import java.util.OptionalDouble;
 //
 // 규칙(확정됨):
 // - Analysis 계산상 DAY/EVENING/NIGHT = 근무 있음, OFF/미등록 = 근무 없음(동일 취급).
-// - availableHours = 시작점 ~ "다음 실제 근무 시작시각" 사이의 시간에서 통근시간을 뺀 값(시간, 소수).
-// - 시작점:
-//     referenceDate가 근무일이면 그 근무의 실제 종료시각(LocalDateTime, 자정 넘김 반영),
-//     referenceDate가 OFF/미등록이면 referenceTime(현재 시각).
-//       단 전날 NIGHT가 referenceDate까지 이어져 그 실제 종료가 referenceTime보다 늦으면
-//       그 NIGHT 실제 종료시각을 시작점으로 쓴다. => max(referenceTime, 전날 NIGHT 종료).
-// - 종료점: OFF/미등록을 건너뛰고 만나는 "다음 실제 근무"의 시작시각.
-//     (이 건너뛰기는 시간 계산에서만 쓰며 transitionType 규칙에는 영향을 주지 않는다.)
-// - 통근 차감(귀가 통근은 "시작점 이후에 아직 귀가가 남아 있는가"로 판단):
-//     현재가 근무일 -> 귀가 1회 + 다음 출근 1회 = 2회
-//     OFF/미등록이고 전날 NIGHT 영향 없음 -> 다음 출근 1회
-//     OFF/미등록이지만 전날 NIGHT가 아직 진행 중(그 종료시각을 시작점으로 사용) -> 귀가 1회 + 다음 출근 1회 = 2회
+// - referenceDate에 실제 근무(DAY/EVENING/NIGHT)가 배정돼 있으면, referenceTime이
+//   그 근무의 실제 구간 [actualStart, actualEnd) 어디에 있는지에 따라 3가지로 나눠 계산한다.
+//   (actualStart/actualEnd는 새로 계산하지 않고 ShiftDateTimeResolver를 그대로 재사용한다.)
+//
+//   [Branch A] referenceTime < actualStart : 그 근무가 아직 시작 전 → 그 근무 자체가 "다음 근무"다.
+//       구간 = referenceTime ~ actualStart. 출근 통근만 1회 차감. (아직 시작 안 한 근무를
+//       "이미 끝난 근무"로 보고 그 이후 근무까지 건너뛰지 않는다.)
+//   [Branch B] actualStart <= referenceTime < actualEnd : 지금 근무 중.
+//       구간 = actualEnd ~ 다음 실제 근무 시작. 귀가 1회 + 출근 1회 = 통근 2회 차감.
+//   [Branch C] referenceTime >= actualEnd : 그 근무는 이미 종료됨.
+//       구간 = referenceTime ~ 다음 실제 근무 시작. 이미 지나간 귀가는 빼지 않고 출근 1회만 차감.
+//
+// - referenceDate가 OFF/미등록이면 위 3분기와 무관하게 기존 규칙을 그대로 쓴다:
+//     시작점 = referenceTime. 단 전날 NIGHT가 referenceTime 시점에도 아직 안 끝났다면
+//     그 NIGHT 실제 종료시각을 시작점으로 쓰고 귀가 통근도 1회 추가(통근 2회), 아니면 출근 1회만.
+// - "다음 실제 근무"는 OFF/미등록을 건너뛰고 찾으며, 이 건너뛰기는 시간 계산에서만 쓰고
+//   transitionType 규칙에는 영향을 주지 않는다.
 // - 준비시간은 차감하지 않는다.
 // - 통근 차감 후 음수면 0.0으로 처리한다.
 // - 반올림하지 않고 원본 double을 반환한다(표시용 반올림은 나중 Response 조립에서).
-// - 미래에 실제 근무가 하나도 없으면 OptionalDouble.empty()를 반환한다.
+// - 다음 실제 근무를 찾지 못하면 OptionalDouble.empty()를 반환한다.
+//   (Branch A는 예외: 다음 근무가 referenceDate 자신의 근무이므로 항상 값이 있다.)
 public class AvailableHoursCalculator {
 
     // 근무표 기준 날짜 + Environment로 "실제 시작/종료 LocalDateTime"을 계산하는 순수 헬퍼.
@@ -46,28 +52,55 @@ public class AvailableHoursCalculator {
                                     LocalDate referenceDate,
                                     LocalDateTime referenceTime) {
 
-        // 1) 다음 실제 근무(DAY/EVENING/NIGHT) 날짜 찾기. 없으면 계산 불가 → empty.
-        Optional<LocalDate> nextWorkDate = findNextWorkDate(schedules, referenceDate);
-        if (nextWorkDate.isEmpty()) {
-            return OptionalDouble.empty();
-        }
-
-        // 2) 시작점 계산 + 귀가 통근이 남아 있는지 판단
         ShiftType currentShift = schedules.get(referenceDate); // 미등록이면 null
         boolean currentIsWork = isWork(currentShift);
 
         LocalDateTime startLdt;
-        boolean hasReturnCommute; // 시작점 이후에 아직 귀가 통근이 남아 있는가
-        if (currentIsWork) {
-            // 현재 근무의 실제 종료시각(NIGHT 등 자정 넘김 반영). 종료 후 귀가가 남아 있다.
-            startLdt = resolver.actualEnd(referenceDate, currentShift, environment);
-            hasReturnCommute = true;
-        } else {
-            // OFF/미등록: 기본은 현재 시각이고 귀가할 근무가 없다.
-            startLdt = referenceTime;
-            hasReturnCommute = false;
+        LocalDateTime endLdt;
+        int commuteCount;
 
-            // 단 전날 NIGHT가 referenceTime 시점에도 아직 안 끝났다면,
+        if (currentIsWork) {
+            LocalDateTime currentActualStart = resolver.actualStart(referenceDate, currentShift, environment);
+            LocalDateTime currentActualEnd = resolver.actualEnd(referenceDate, currentShift, environment);
+
+            if (referenceTime.isBefore(currentActualStart)) {
+                // Branch A: 아직 시작 전 → 그 근무 자체가 다음 근무. 미래 탐색 불필요, 항상 값이 있다.
+                startLdt = referenceTime;
+                endLdt = currentActualStart;
+                commuteCount = 1;
+
+            } else if (referenceTime.isBefore(currentActualEnd)) {
+                // Branch B: 근무 중. 종료 후 귀가 + 다음 근무 출근 = 통근 2회.
+                Optional<LocalDateTime> nextStart = nextWorkActualStart(schedules, referenceDate, environment);
+                if (nextStart.isEmpty()) {
+                    return OptionalDouble.empty();
+                }
+                startLdt = currentActualEnd;
+                endLdt = nextStart.get();
+                commuteCount = 2;
+
+            } else {
+                // Branch C: 이미 종료됨. 이미 지나간 귀가는 빼지 않고 다음 근무 출근 1회만.
+                Optional<LocalDateTime> nextStart = nextWorkActualStart(schedules, referenceDate, environment);
+                if (nextStart.isEmpty()) {
+                    return OptionalDouble.empty();
+                }
+                startLdt = referenceTime;
+                endLdt = nextStart.get();
+                commuteCount = 1;
+            }
+
+        } else {
+            // OFF/미등록: 기존 규칙 그대로 유지.
+            Optional<LocalDateTime> nextStart = nextWorkActualStart(schedules, referenceDate, environment);
+            if (nextStart.isEmpty()) {
+                return OptionalDouble.empty();
+            }
+
+            startLdt = referenceTime;
+            boolean hasReturnCommute = false;
+
+            // 전날 NIGHT가 referenceTime 시점에도 아직 안 끝났다면,
             // 그 NIGHT 종료시각을 시작점으로 쓰고 NIGHT 퇴근 후 귀가도 아직 남아 있다.
             ShiftType prevShift = schedules.get(referenceDate.minusDays(1));
             if (prevShift == ShiftType.NIGHT) {
@@ -78,22 +111,26 @@ public class AvailableHoursCalculator {
                     hasReturnCommute = true;
                 }
             }
+
+            endLdt = nextStart.get();
+            commuteCount = (hasReturnCommute ? 1 : 0) + 1;
         }
 
-        // 3) 종료점 = 다음 실제 근무의 실제 시작시각(NIGHT 00:00처럼 다음날 시작도 반영)
-        ShiftType nextShift = schedules.get(nextWorkDate.get());
-        LocalDateTime endLdt = resolver.actualStart(nextWorkDate.get(), nextShift, environment);
-
-        // 4) 통근 차감: (남아 있는 귀가 통근이면 1회) + 다음 실제 근무 출근 1회
-        int commuteCount = (hasReturnCommute ? 1 : 0) + 1;
         long commuteMinutes = (long) commuteCount * environment.getCommuteMinutes();
-
-        // 5) 전체분 - 통근차감분, 음수면 0으로 자름
         long totalMinutes = Duration.between(startLdt, endLdt).toMinutes();
         long availableMinutes = Math.max(0, totalMinutes - commuteMinutes);
 
         // 반올림하지 않고 원본 double(시간)로 반환
         return OptionalDouble.of(availableMinutes / 60.0);
+    }
+
+    // "다음 실제 근무"의 실제 시작 LocalDateTime. 없으면 empty.
+    // (findNextWorkDate + actualStart 조회를 Branch B/C/OFF 3곳에서 공통으로 쓰기 위한 헬퍼.)
+    private Optional<LocalDateTime> nextWorkActualStart(Map<LocalDate, ShiftType> schedules,
+                                                        LocalDate referenceDate,
+                                                        Environment environment) {
+        Optional<LocalDate> nextWorkDate = findNextWorkDate(schedules, referenceDate);
+        return nextWorkDate.map(date -> resolver.actualStart(date, schedules.get(date), environment));
     }
 
     // referenceDate 다음 날부터 미래로 이동하며 OFF/미등록을 건너뛰고 처음 만나는 실제 근무 날짜.

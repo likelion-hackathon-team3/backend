@@ -41,6 +41,16 @@ class AvailableHoursCalculatorTest {
         );
     }
 
+    // 이번 3분기(Branch A/B/C) 테스트에서 공통으로 쓰는 환경: DAY 07:30~16:00 / EVENING 16:00~23:00 / NIGHT 23:00~07:30.
+    private Environment envUser(int commuteMinutes) {
+        return new Environment(
+                LocalTime.of(7, 30), LocalTime.of(16, 0),
+                LocalTime.of(16, 0), LocalTime.of(23, 0),
+                LocalTime.of(23, 0), LocalTime.of(7, 30),
+                commuteMinutes
+        );
+    }
+
     private Map<LocalDate, ShiftType> schedules(Object... pairs) {
         Map<LocalDate, ShiftType> map = new HashMap<>();
         for (int i = 0; i < pairs.length; i += 2) {
@@ -182,5 +192,71 @@ class AvailableHoursCalculatorTest {
         );
         OptionalDouble r = calculator.calculate(s, env(30), d("2026-08-10"), t("2026-08-10T09:00"));
         assertThat(r).isEmpty();
+    }
+
+    // ===== Branch A: referenceDate 근무가 아직 시작 전 =====
+    // 이 경우 그 근무 자체가 "다음 근무"가 되어야 한다(미래 근무로 건너뛰면 안 됨).
+
+    @Test
+    void BranchA_오늘NIGHT_시작전() {
+        // 8/14 NIGHT(23:00~07:30). now 17:00 < actualStart(23:00) => Branch A.
+        // (23:00-17:00=360분) - 통근30분 = 330분 = 5.5h
+        Map<LocalDate, ShiftType> s = schedules("2026-08-14", ShiftType.NIGHT);
+        OptionalDouble r = calculator.calculate(s, envUser(30), d("2026-08-14"), t("2026-08-14T17:00"));
+        assertThat(r).hasValue(5.5);
+    }
+
+    @Test
+    void BranchA_오늘EVENING_시작전() {
+        // 8/15 EVENING(16:00~23:00). now 10:00 < actualStart(16:00) => Branch A.
+        // (16:00-10:00=360분) - 통근30분 = 330분 = 5.5h
+        Map<LocalDate, ShiftType> s = schedules("2026-08-15", ShiftType.EVENING);
+        OptionalDouble r = calculator.calculate(s, envUser(30), d("2026-08-15"), t("2026-08-15T10:00"));
+        assertThat(r).hasValue(5.5);
+    }
+
+    @Test
+    void BranchA_NIGHT_rosterDate_시작전() {
+        // 8/15 NIGHT, nightStart 01:37 < eveningStart 16:00 => 실제 시작 8/16 01:37 (roster-date 규칙)
+        // now 8/15 17:37 < actualStart(8/16 01:37) => Branch A.
+        // (8h=480분) - 통근30분 = 450분 = 7.5h
+        Environment e = new Environment(
+                LocalTime.of(7, 30), LocalTime.of(16, 0),
+                LocalTime.of(16, 0), LocalTime.of(23, 0),
+                LocalTime.of(1, 37), LocalTime.of(7, 30),
+                30
+        );
+        Map<LocalDate, ShiftType> s = schedules("2026-08-15", ShiftType.NIGHT);
+        OptionalDouble r = calculator.calculate(s, e, d("2026-08-15"), t("2026-08-15T17:37"));
+        assertThat(r).hasValue(7.5);
+    }
+
+    // ===== Branch C: referenceDate 근무가 이미 종료됨 =====
+
+    @Test
+    void BranchC_오늘DAY_이미종료() {
+        // 8/10 DAY(07:00~15:00), now 20:00 >= actualEnd(15:00) => Branch C.
+        // 다음 근무 8/11 EVENING(15:00 시작). (20:00->익일15:00=19h=1140분) - 통근30분(1회) = 1110분 = 18.5h
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-10", ShiftType.DAY,
+                "2026-08-11", ShiftType.EVENING
+        );
+        OptionalDouble r = calculator.calculate(s, env(30), d("2026-08-10"), t("2026-08-10T20:00"));
+        assertThat(r).hasValue(18.5);
+    }
+
+    // ===== 위험 케이스: 오늘 미시작 근무를 건너뛰고 먼 미래 근무까지 잘못 계산하면 안 됨 =====
+
+    @Test
+    void 오늘아직시작안한EVENING을_건너뛰고_먼미래근무까지_계산하면_안됨() {
+        // 8/15 EVENING(16:00~23:00, 아직 미시작), 8/17 DAY(07:30 시작)도 등록돼 있음.
+        // now 10:00 < actualStart(16:00) => Branch A여야 하며, 8/17 DAY까지 건너뛰면 안 된다.
+        // 정답: (16:00-10:00=360분) - 통근30분 = 330분 = 5.5h. (31.5h가 나오면 버그)
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-15", ShiftType.EVENING,
+                "2026-08-17", ShiftType.DAY
+        );
+        OptionalDouble r = calculator.calculate(s, envUser(30), d("2026-08-15"), t("2026-08-15T10:00"));
+        assertThat(r).hasValue(5.5);
     }
 }
