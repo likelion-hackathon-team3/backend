@@ -1,0 +1,15 @@
+### Gradle ###
+.gradle/
+build/
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+### Secrets (DB 계정/비밀번호 등은 Git에 추적되지 않게 한다) ###
+.env
+*.local.properties
+application-local.properties
