@@ -62,6 +62,19 @@ public class ShiftPatternCalculator {
         } else {
             previousWorkDate = workDates.lower(referenceDate);
             nextWorkDate = workDates.ceiling(referenceDate);
+
+            // NIGHT roster-date 규칙 때문에 previousWorkDate로 잡힌 근무가 사실은
+            // "아직 시작 안 한 다음 근무"인 경우가 있다.
+            // 예: NIGHT 01:37 시작 -> referenceDate가 다음날로 넘어갔지만 그 NIGHT는 아직 시작 전.
+            // NextShiftMinutesCalculator와 동일한 기준(actualStart.isAfter(now), 정각은 제외)으로 재분류한다.
+            if (previousWorkDate != null && schedules.get(previousWorkDate) == ShiftType.NIGHT) {
+                LocalDateTime nightActualStart =
+                        resolver.actualStart(previousWorkDate, ShiftType.NIGHT, environment);
+                if (nightActualStart.isAfter(now)) {
+                    nextWorkDate = previousWorkDate;
+                    previousWorkDate = workDates.lower(previousWorkDate);
+                }
+            }
         }
 
         if (nextWorkDate == null) {

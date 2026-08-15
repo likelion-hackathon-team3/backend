@@ -309,4 +309,90 @@ class ShiftPatternCalculatorTest {
                 0
         ));
     }
+
+    // ================= NIGHT roster-date 버그 회귀 =================
+    // DAY(8/14) -> NIGHT(8/15, 01:37 시작) -> OFF(8/16).
+    // referenceDate가 8/16으로 넘어간 상태에서도(예: ReferenceDateResolver가 그렇게 판단하는 상황),
+    // 아직 시작 안 한 전날(8/15) NIGHT를 previousWorkDate가 아니라 nextWorkDate로 재분류해야 한다.
+
+    // O. actualStart(8/16 01:37) 직전이면 재분류되어 DAY(8/14)->NIGHT(8/15), 0일 휴무로 나온다.
+    @Test
+    void O_referenceDate가_넘어가도_아직_시작_안한_전날NIGHT를_다음근무로_재분류() {
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF
+        );
+        Optional<WorkTransitionPattern> result = calculator.find(
+                s, envNightStarts0137(), LocalDate.parse("2026-08-16"), LocalDateTime.parse("2026-08-16T00:30:00"));
+
+        assertThat(result).contains(new WorkTransitionPattern(
+                ShiftType.DAY, LocalDate.parse("2026-08-14"),
+                ShiftType.NIGHT, LocalDate.parse("2026-08-15"),
+                0
+        ));
+    }
+
+    // P. actualStart 정각(8/16 01:37)이면 재분류하지 않는다.
+    // (NextShiftMinutesCalculator와 동일하게 actualStart.isAfter(now)만 재분류 대상 — 정각은 제외.
+    //  실제 파이프라인에서는 이 시각엔 ReferenceDateResolver가 referenceDate를 8/15로 되돌리므로
+    //  이 조합(referenceDate=8/16, now=8/16 01:37)은 발생하지 않지만, 재분류 조건의 경계값 자체를
+    //  이 계산기 단위에서 직접 고정해 둔다.)
+    @Test
+    void P_actualStart_정각이면_재분류_안함() {
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF
+        );
+        Optional<WorkTransitionPattern> result = calculator.find(
+                s, envNightStarts0137(), LocalDate.parse("2026-08-16"), LocalDateTime.parse("2026-08-16T01:37:00"));
+
+        assertThat(result).isEmpty();
+    }
+
+    // Q. actualStart 이후(진행 중)에도 재분류하지 않는다.
+    @Test
+    void Q_actualStart_이후에도_재분류_안함() {
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF
+        );
+        Optional<WorkTransitionPattern> result = calculator.find(
+                s, envNightStarts0137(), LocalDate.parse("2026-08-16"), LocalDateTime.parse("2026-08-16T01:38:00"));
+
+        assertThat(result).isEmpty();
+    }
+
+    // R. previousWorkDate가 NIGHT가 아니면(DAY 등) 재분류 대상이 아니다(회귀 방지).
+    @Test
+    void R_이전근무가_NIGHT아니면_재분류_안함() {
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-16", ShiftType.OFF
+        );
+        Optional<WorkTransitionPattern> result = calculator.find(
+                s, envNightStarts0137(), LocalDate.parse("2026-08-16"), LocalDateTime.parse("2026-08-16T00:30:00"));
+
+        assertThat(result).isEmpty();
+    }
+
+    // S. 재분류 후 그 NIGHT보다 이전 실제 근무가 없으면 previousWorkShift=null로 처리된다
+    //    (기존 J 케이스의 null 처리 로직을 그대로 재사용).
+    @Test
+    void S_재분류후_이전_실제_근무_없음() {
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF
+        );
+        Optional<WorkTransitionPattern> result = calculator.find(
+                s, envNightStarts0137(), LocalDate.parse("2026-08-16"), LocalDateTime.parse("2026-08-16T00:30:00"));
+
+        assertThat(result).contains(new WorkTransitionPattern(
+                null, null,
+                ShiftType.NIGHT, LocalDate.parse("2026-08-15"),
+                0
+        ));
+    }
 }

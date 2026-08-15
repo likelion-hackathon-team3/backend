@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -213,5 +215,48 @@ class RiskLevelCalculatorTest {
         assertThat(consecutiveDaysCalculator.calculate(s, referenceDate)).isEqualTo(1);
 
         assertThat(riskLevelOf(s, now)).isEqualTo(RiskLevel.NORMAL);
+    }
+
+    // ================= NIGHT roster-date 버그 회귀 (3개 계산기 일치 확인) =================
+
+    // referenceDate가 NIGHT의 roster-date보다 하루 넘어가도(=OFF로 넘어간 상태),
+    // NextShiftMinutesCalculator/AvailableHoursCalculator/ShiftPatternCalculator 셋 다
+    // 아직 시작 안 한 그 NIGHT를 "다음 근무"로 일치되게 인식해야 한다(모순으로 인한 예외 없음).
+    @Test
+    void 종합_NIGHT_roster_date_간극에서도_세_계산기가_일치한다() {
+        Environment environment = new Environment(
+                LocalTime.of(7, 30), LocalTime.of(16, 0),
+                LocalTime.of(16, 0), LocalTime.of(23, 0),
+                LocalTime.of(1, 37), LocalTime.of(7, 30),
+                30
+        );
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF
+        );
+        LocalDateTime now = LocalDateTime.parse("2026-08-16T00:30:00");
+
+        LocalDate referenceDate = referenceDateResolver.resolve(s, environment, now);
+        assertThat(referenceDate).isEqualTo(LocalDate.parse("2026-08-16"));
+
+        OptionalLong nextShiftMinutes = new NextShiftMinutesCalculator().calculate(s, environment, now);
+        OptionalDouble availableHours = availableHoursCalculator.calculate(s, environment, referenceDate, now);
+        Optional<WorkTransitionPattern> pattern = shiftPatternCalculator.find(s, environment, referenceDate, now);
+
+        assertThat(nextShiftMinutes).hasValue(67L);
+        assertThat(availableHours).isPresent();
+        assertThat(pattern).isPresent();
+
+        assertThat(pattern.get()).isEqualTo(new WorkTransitionPattern(
+                ShiftType.DAY, LocalDate.parse("2026-08-14"),
+                ShiftType.NIGHT, LocalDate.parse("2026-08-15"),
+                0
+        ));
+
+        int consecutiveDays = consecutiveDaysCalculator.calculate(s, referenceDate);
+        // availableHours가 6시간 미만이라 강제 규칙으로 DANGER (패턴 점수와 무관).
+        RiskLevel riskLevel = calculator.calculate(pattern.get(), consecutiveDays, availableHours.getAsDouble());
+        assertThat(riskLevel).isEqualTo(RiskLevel.DANGER);
     }
 }
