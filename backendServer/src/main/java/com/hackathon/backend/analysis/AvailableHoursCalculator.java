@@ -91,29 +91,46 @@ public class AvailableHoursCalculator {
             }
 
         } else {
-            // OFF/미등록: 기존 규칙 그대로 유지.
-            Optional<LocalDateTime> nextStart = nextWorkActualStart(schedules, referenceDate, environment);
-            if (nextStart.isEmpty()) {
-                return OptionalDouble.empty();
-            }
+            // OFF/미등록.
+            LocalDate prevDate = referenceDate.minusDays(1);
+            ShiftType prevShift = schedules.get(prevDate);
 
-            startLdt = referenceTime;
-            boolean hasReturnCommute = false;
+            // 전날이 NIGHT인데 roster-date 규칙 때문에 실제로는 아직 시작 안 한 경우인지 먼저 확인한다.
+            // 예: NIGHT 01:37 시작 -> referenceDate가 다음날로 넘어갔지만 실제 시작 전인 상태.
+            // 이때는 그 NIGHT 자체가 "다음 근무"이며 Branch A와 동일하게 출근 통근 1회만 차감한다.
+            // NextShiftMinutesCalculator와 동일한 기준(actualStart.isAfter(referenceTime), 정각은 제외)으로 판단한다.
+            LocalDateTime prevNightActualStart = prevShift == ShiftType.NIGHT
+                    ? resolver.actualStart(prevDate, ShiftType.NIGHT, environment)
+                    : null;
 
-            // 전날 NIGHT가 referenceTime 시점에도 아직 안 끝났다면,
-            // 그 NIGHT 종료시각을 시작점으로 쓰고 NIGHT 퇴근 후 귀가도 아직 남아 있다.
-            ShiftType prevShift = schedules.get(referenceDate.minusDays(1));
-            if (prevShift == ShiftType.NIGHT) {
-                LocalDateTime prevNightEnd =
-                        resolver.actualEnd(referenceDate.minusDays(1), ShiftType.NIGHT, environment);
-                if (prevNightEnd.isAfter(startLdt)) {
-                    startLdt = prevNightEnd;
-                    hasReturnCommute = true;
+            if (prevNightActualStart != null && prevNightActualStart.isAfter(referenceTime)) {
+                startLdt = referenceTime;
+                endLdt = prevNightActualStart;
+                commuteCount = 1;
+
+            } else {
+                // 기존 규칙 그대로 유지.
+                Optional<LocalDateTime> nextStart = nextWorkActualStart(schedules, referenceDate, environment);
+                if (nextStart.isEmpty()) {
+                    return OptionalDouble.empty();
                 }
-            }
 
-            endLdt = nextStart.get();
-            commuteCount = (hasReturnCommute ? 1 : 0) + 1;
+                startLdt = referenceTime;
+                boolean hasReturnCommute = false;
+
+                // 전날 NIGHT가 referenceTime 시점에도 아직 안 끝났다면,
+                // 그 NIGHT 종료시각을 시작점으로 쓰고 NIGHT 퇴근 후 귀가도 아직 남아 있다.
+                if (prevShift == ShiftType.NIGHT) {
+                    LocalDateTime prevNightEnd = resolver.actualEnd(prevDate, ShiftType.NIGHT, environment);
+                    if (prevNightEnd.isAfter(startLdt)) {
+                        startLdt = prevNightEnd;
+                        hasReturnCommute = true;
+                    }
+                }
+
+                endLdt = nextStart.get();
+                commuteCount = (hasReturnCommute ? 1 : 0) + 1;
+            }
         }
 
         long commuteMinutes = (long) commuteCount * environment.getCommuteMinutes();

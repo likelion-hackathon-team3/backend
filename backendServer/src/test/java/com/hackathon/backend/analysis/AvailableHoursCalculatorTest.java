@@ -259,4 +259,62 @@ class AvailableHoursCalculatorTest {
         OptionalDouble r = calculator.calculate(s, envUser(30), d("2026-08-15"), t("2026-08-15T10:00"));
         assertThat(r).hasValue(5.5);
     }
+
+    // ================= NIGHT roster-date 버그 회귀 =================
+    // DAY(8/14) -> NIGHT(8/15, 01:37 시작) -> OFF(8/16).
+    // referenceDate가 8/16(OFF 분기)으로 넘어가도, 아직 시작 안 한 전날(8/15) NIGHT를
+    // "다음 근무"로 찾아야 한다(기존 forward-search는 referenceDate+1부터만 훑어서 놓쳤던 부분).
+
+    private Environment envNightStarts0137(int commuteMinutes) {
+        return new Environment(
+                LocalTime.of(7, 30), LocalTime.of(16, 0),
+                LocalTime.of(16, 0), LocalTime.of(23, 0),
+                LocalTime.of(1, 37), LocalTime.of(7, 30),
+                commuteMinutes
+        );
+    }
+
+    @Test
+    void OFF현재_전날NIGHT가_roster_date_규칙으로_아직_시작_전이면_그_NIGHT까지_통근1회() {
+        // NIGHT actualStart = 8/16 01:37. referenceTime = 8/16 00:30(아직 시작 전).
+        // (67분 - 통근30분) / 60 = 37/60 h. Branch A와 동일하게 출근 통근 1회만 차감.
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF
+        );
+        OptionalDouble r = calculator.calculate(
+                s, envNightStarts0137(30), d("2026-08-16"), t("2026-08-16T00:30"));
+        assertThat(r).hasValue(37.0 / 60.0);
+    }
+
+    @Test
+    void OFF현재_전날NIGHT_actualStart_정각이면_새분기_미적용_기존로직으로_처리() {
+        // referenceTime이 actualStart(01:37)와 정확히 같으면 "이미 시작"으로 보고 새 분기를 타지 않는다.
+        // 기존 로직(전날 NIGHT 진행중 체크)이 적용되어 시작점 = NIGHT 실제종료(8/16 07:30), 통근 2회.
+        // 8/16 07:30 ~ 8/17 07:30(DAY 시작) = 24h - 60분 => 23.0
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF,
+                "2026-08-17", ShiftType.DAY
+        );
+        OptionalDouble r = calculator.calculate(
+                s, envNightStarts0137(30), d("2026-08-16"), t("2026-08-16T01:37"));
+        assertThat(r).hasValue(23.0);
+    }
+
+    @Test
+    void OFF현재_전날NIGHT_actualStart_직후에도_새분기_미적용() {
+        // 진행 중(01:38)에도 새 분기 미적용 -> 정각 테스트와 동일한 결과(23.0).
+        Map<LocalDate, ShiftType> s = schedules(
+                "2026-08-14", ShiftType.DAY,
+                "2026-08-15", ShiftType.NIGHT,
+                "2026-08-16", ShiftType.OFF,
+                "2026-08-17", ShiftType.DAY
+        );
+        OptionalDouble r = calculator.calculate(
+                s, envNightStarts0137(30), d("2026-08-16"), t("2026-08-16T01:38"));
+        assertThat(r).hasValue(23.0);
+    }
 }
