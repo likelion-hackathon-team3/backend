@@ -13,7 +13,7 @@
 ### 2. 통합 분석 지표 (Integrated Analysis Metrics)
 - **위험도 (Risk Level)**: 근무 전환 패턴, 연속 근무 일수, 다음 근무까지의 휴식 시간 등을 종합한 위험 등급 (`NORMAL`, `CAUTION`, `DANGER`).
 - **피로도 (Fatigue Level)**: 사용자의 주관적/측정된 현재 피로 상태 (`LOW`, `MEDIUM`, `HIGH`).
-- **회복 상태 (Recovery State)**: 피로도, 수면 시간, 활동량, 심박수를 종합한 생체 회복 등급 (`GOOD` / 양호, `NEEDS_RECOVERY` / 회복 필요, `PRIORITY_RECOVERY` / 회복 우선 필요).
+- **회복 상태 (Recovery State)**: 피로도, 수면 시간, 활동량, 심박수를 종합한 생체 회복 등급 (`GOOD` / 양호, `RECOVERY_NEEDED` / 회복 필요, `RECOVERY_PRIORITY` / 회복 우선 필요).
 - **가용 시간 (Available Hours)**: 다음 근무 시작 전까지 개인이 수면, 휴식, 활동에 배분할 수 있는 남은 시간(분 단위 또는 시간 단위).
 
 ### 3. 타임라인 도메인 (AI Timeline Engine)
