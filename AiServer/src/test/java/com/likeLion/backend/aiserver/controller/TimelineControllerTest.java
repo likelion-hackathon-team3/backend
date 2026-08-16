@@ -45,8 +45,8 @@ class TimelineControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/timeline/generate - currentTime, 커스텀 shiftTimes, 실시간 분석 지표를 포함한 요청 정상 처리")
-    void generateTimeline_todayMode_withCurrentTime_success() throws Exception {
+    @DisplayName("POST /api/timeline/generate - currentTime, userNotes, 커스텀 shiftTimes, 실시간 분석 지표를 포함한 요청 정상 처리")
+    void generateTimeline_todayMode_withUserNotes_success() throws Exception {
         // given
         LocalDate targetDate = LocalDate.of(2026, 7, 12);
         ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30 ~ 14:30", "14:30 ~ 22:30", "22:30 ~ 익일 06:30");
@@ -56,6 +56,7 @@ class TimelineControllerTest {
                 ShiftType.DAY,
                 "EVENING_TO_DAY",
                 "23:00",
+                "카페인 민감, 암막커튼 사용",
                 customShiftTimes,
                 new AnalysisResultDto(RiskLevel.CAUTION, RecoveryStatus.RECOVERY_NEEDED, FatigueLevel.HIGH, 6.5, 2)
         );

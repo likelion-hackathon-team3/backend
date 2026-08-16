@@ -27,7 +27,7 @@
 ## 2. AI 맞춤 타임라인 생성 API
 
 * **Endpoint**: `POST /api/timeline/generate`
-* **Description**: 16가지 근무 전환 패턴, 병원별 실제 근무 시간대, 호출 시점(현재 시각), 실시간 통합 분석 지표(선택)를 바탕으로 당일(`TODAY`) 또는 미래(`FUTURE`) 맞춤형 생활 루틴 및 추천 가이드를 생성합니다.
+* **Description**: 16가지 근무 전환 패턴, 병원별 실제 근무 시간대, 호출 시점(현재 시각), 개인 특이사항/선호도, 실시간 통합 분석 지표(선택)를 바탕으로 동적 역산 스케줄링을 수행하여 당일(`TODAY`) 또는 미래(`FUTURE`) 맞춤형 생활 루틴 및 추천 가이드를 생성합니다.
 * **Content-Type**: `application/json`
 
 ### Request (요청)
@@ -39,6 +39,7 @@
 | `nextShift` | string | N | 다음 근무 (`DAY`, `EVENING`, `NIGHT`, `OFF`). 기본값 `OFF` |
 | `transitionType` | string | N | 근무 전환 유형 (예: `EVENING_TO_DAY`). 미입력 시 자동 조합 |
 | `currentTime` | string | N | 호출 시점의 현재 시각 (HH:mm, 예: "16:30"). 당일 모드 시 이 시각 이후의 잔여 일정 위주로 생성 |
+| `userNotes` | string | N | 사용자 개인 특이사항 및 선호 메모 (예: "카페인에 민감함", "수면 안대 필수") |
 | `shiftTimes` | object | N | 병원별 실제 교대 시간대 설정 (미입력 시 표준 시간 기준 적용) |
 | `↳ dayTime` | string | N | DAY 근무 시간대 (예: "06:30 ~ 14:30") |
 | `↳ eveningTime` | string | N | EVENING 근무 시간대 (예: "14:30 ~ 22:30") |
@@ -58,6 +59,7 @@
   "nextShift": "DAY",
   "transitionType": "EVENING_TO_DAY",
   "currentTime": "23:00",
+  "userNotes": "카페인에 취약함, 소화가 잘 안 됨",
   "shiftTimes": {
     "dayTime": "06:30 ~ 14:30",
     "eveningTime": "14:30 ~ 22:30",

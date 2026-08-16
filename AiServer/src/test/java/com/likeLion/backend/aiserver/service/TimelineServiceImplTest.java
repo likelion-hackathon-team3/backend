@@ -69,7 +69,7 @@ class TimelineServiceImplTest {
     }
 
     @Test
-    @DisplayName("analysisResult와 currentTime이 존재하면 TODAY 모드로 실시간 지표 반영 맞춤 타임라인을 생성한다")
+    @DisplayName("analysisResult, currentTime, userNotes가 존재하면 TODAY 모드로 맞춤 타임라인을 생성한다")
     void generateTimeline_todayMode() {
         // given
         LocalDate targetDate = LocalDate.of(2026, 8, 17);
@@ -86,6 +86,7 @@ class TimelineServiceImplTest {
                 ShiftType.DAY,
                 "EVENING_TO_DAY",
                 "23:00",
+                "카페인 민감, 암막커튼 사용",
                 null,
                 analysisResult
         );
@@ -120,6 +121,7 @@ class TimelineServiceImplTest {
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
         verify(timelineAiGenerator).generateTodayTimeline(captor.capture());
         assertThat(captor.getValue().currentTime()).isEqualTo("23:00");
+        assertThat(captor.getValue().userNotes()).isEqualTo("카페인 민감, 암막커튼 사용");
     }
 
     @Test
@@ -134,6 +136,7 @@ class TimelineServiceImplTest {
                 ShiftType.NIGHT,
                 "DAY_TO_NIGHT",
                 "15:00",
+                null,
                 customShiftTimes,
                 null
         );

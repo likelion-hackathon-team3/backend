@@ -22,6 +22,9 @@ public record TimelineGenerateRequest(
         @Schema(description = "호출 시점의 현재 시각 (HH:mm, 당일 모드 시 이 시각 이후의 잔여 일정 위주로 생성)", example = "16:30")
         String currentTime,
 
+        @Schema(description = "사용자 개인 특이사항 및 선호 메모 (예: 카페인에 민감함, 수면 안대 필수 등)", example = "카페인 민감, 암막커튼 사용")
+        String userNotes,
+
         @Schema(description = "병원/사용자 맞춤 근무 시간대 설정 (선택적, 미입력 시 표준 시간 기준 적용)")
         ShiftTimesDto shiftTimes,
 
@@ -35,7 +38,7 @@ public record TimelineGenerateRequest(
             String transitionType,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, null, null, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, null, null, null, analysisResult);
     }
 
     public TimelineGenerateRequest(
@@ -46,6 +49,18 @@ public record TimelineGenerateRequest(
             ShiftTimesDto shiftTimes,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, null, shiftTimes, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, null, null, shiftTimes, analysisResult);
+    }
+
+    public TimelineGenerateRequest(
+            LocalDate targetDate,
+            ShiftType currentShift,
+            ShiftType nextShift,
+            String transitionType,
+            String currentTime,
+            ShiftTimesDto shiftTimes,
+            AnalysisResultDto analysisResult
+    ) {
+        this(targetDate, currentShift, nextShift, transitionType, currentTime, null, shiftTimes, analysisResult);
     }
 }
