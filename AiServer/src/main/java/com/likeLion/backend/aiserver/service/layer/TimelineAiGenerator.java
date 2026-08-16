@@ -2,6 +2,7 @@ package com.likeLion.backend.aiserver.service.layer;
 
 import com.likeLion.backend.aiserver.dto.timeline.AnalysisResultDto;
 import com.likeLion.backend.aiserver.dto.timeline.RawTimelineAiResponse;
+import com.likeLion.backend.aiserver.dto.timeline.ShiftTimesDto;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineGenerateRequest;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -71,6 +72,18 @@ public class TimelineAiGenerator {
         map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : "OFF");
         map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : "OFF");
         map.put("transitionType", request.transitionType() != null ? request.transitionType() : "OFF_TO_OFF");
+
+        ShiftTimesDto shiftTimes = request.shiftTimes();
+        if (shiftTimes != null) {
+            map.put("dayTime", shiftTimes.dayTimeOrDefault());
+            map.put("eveningTime", shiftTimes.eveningTimeOrDefault());
+            map.put("nightTime", shiftTimes.nightTimeOrDefault());
+        } else {
+            map.put("dayTime", ShiftTimesDto.DEFAULT_DAY_TIME);
+            map.put("eveningTime", ShiftTimesDto.DEFAULT_EVENING_TIME);
+            map.put("nightTime", ShiftTimesDto.DEFAULT_NIGHT_TIME);
+        }
+
         map.put("format", outputConverter.getFormat());
         return map;
     }

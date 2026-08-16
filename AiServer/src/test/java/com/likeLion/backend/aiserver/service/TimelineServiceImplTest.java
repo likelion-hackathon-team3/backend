@@ -118,6 +118,36 @@ class TimelineServiceImplTest {
     }
 
     @Test
+    @DisplayName("shiftTimes가 주어지면 커스텀 근무 시간대가 정상 전달된다")
+    void generateTimeline_withCustomShiftTimes() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 20);
+        ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30 ~ 14:30", "14:30 ~ 22:30", "22:30 ~ 익일 06:30");
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.NIGHT,
+                "DAY_TO_NIGHT",
+                customShiftTimes,
+                null
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "맞춤 계획", "서브타이틀", List.of(), List.of()
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+
+        // when
+        timelineService.generateTimeline(request);
+
+        // then
+        ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        assertThat(captor.getValue().shiftTimes()).isNotNull();
+        assertThat(captor.getValue().shiftTimes().dayTime()).isEqualTo("06:30 ~ 14:30");
+    }
+
+    @Test
     @DisplayName("transitionType이 누락된 경우 currentShift와 nextShift로 자동 조합한다")
     void generateTimeline_autoGenerateTransitionType() {
         // given

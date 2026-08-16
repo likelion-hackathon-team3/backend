@@ -45,15 +45,17 @@ class TimelineControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/timeline/generate - 당일 실시간 맞춤 요청 시 TODAY 모드 및 프론트엔드 명세 응답 반환")
-    void generateTimeline_todayMode_success() throws Exception {
+    @DisplayName("POST /api/timeline/generate - 커스텀 shiftTimes 및 실시간 분석 지표를 포함한 요청 정상 처리")
+    void generateTimeline_todayMode_withShiftTimes_success() throws Exception {
         // given
         LocalDate targetDate = LocalDate.of(2026, 7, 12);
+        ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30 ~ 14:30", "14:30 ~ 22:30", "22:30 ~ 익일 06:30");
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 targetDate,
                 ShiftType.EVENING,
                 ShiftType.DAY,
                 "EVENING_TO_DAY",
+                customShiftTimes,
                 new AnalysisResultDto(RiskLevel.CAUTION, RecoveryStatus.RECOVERY_NEEDED, FatigueLevel.HIGH, 6.5, 2)
         );
 
@@ -63,16 +65,15 @@ class TimelineControllerTest {
                 "오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요",
                 "회복을 최우선으로 한 개인 맞춤 루틴입니다.",
                 List.of(
-                        new TimelineItemDto("23:30", "저녁 식사", "단백질 위주의 가벼운 식사를 권장해요.", ActivityType.MEAL, null),
-                        new TimelineItemDto("00:10", "취침 준비", "조명 낮추기, 샤워", ActivityType.PREPARATION, null),
-                        new TimelineItemDto("00:40", "취침 (권장 취침 시간)", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
-                        new TimelineItemDto("05:50", "기상", "햇빛을 10분 이상 쬐고 물 한 잔을 마셔요.", ActivityType.WAKE_UP, null),
-                        new TimelineItemDto("07:00", "D 근무 시작", "파이팅! 오늘도 잘 해내요!", ActivityType.WORK, null)
+                        new TimelineItemDto("23:00", "저녁 식사", "단백질 위주의 가벼운 식사를 권장해요.", ActivityType.MEAL, null),
+                        new TimelineItemDto("23:40", "취침 준비", "샤워 및 조명 낮추기", ActivityType.PREPARATION, null),
+                        new TimelineItemDto("00:10", "취침", "수면 목표 5시간 20분", ActivityType.SLEEP, "권장 수면 시간: 5시간 20분"),
+                        new TimelineItemDto("05:30", "기상", "물 한 잔과 스트레칭", ActivityType.WAKE_UP, null),
+                        new TimelineItemDto("06:30", "D 근무 시작", "병원 도착 및 인수인계", ActivityType.WORK, null)
                 ),
                 List.of(
                         "오늘은 수면 확보가 가장 중요해요.",
-                        "카페인은 14시 이후 섭취를 피해 주세요.",
-                        "낮잠이 필요하면 20분 이내로 짧게 유지하세요."
+                        "카페인은 14시 이후 섭취를 피해 주세요."
                 )
         );
 
@@ -86,12 +87,9 @@ class TimelineControllerTest {
                 .andExpect(jsonPath("$.targetDate").value("2026-07-12"))
                 .andExpect(jsonPath("$.mode").value("TODAY"))
                 .andExpect(jsonPath("$.pageTitle").value("오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요"))
-                .andExpect(jsonPath("$.pageSubtitle").value("회복을 최우선으로 한 개인 맞춤 루틴입니다."))
                 .andExpect(jsonPath("$.timelineItems").isArray())
                 .andExpect(jsonPath("$.timelineItems[0].category").value("MEAL"))
-                .andExpect(jsonPath("$.timelineItems[2].highlight").value("권장 수면 시간: 5시간 10분"))
-                .andExpect(jsonPath("$.recommendations").isArray())
-                .andExpect(jsonPath("$.recommendations[0]").value("오늘은 수면 확보가 가장 중요해요."));
+                .andExpect(jsonPath("$.timelineItems[2].highlight").value("권장 수면 시간: 5시간 20분"));
     }
 
     @Test

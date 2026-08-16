@@ -39,11 +39,12 @@ public class TimelineServiceImpl implements TimelineService {
                 currentShift,
                 nextShift,
                 transitionType,
+                request.shiftTimes(),
                 request.analysisResult()
         );
 
-        log.info("Timeline generation requested for targetDate: {}, transition: {}, hasAnalysis: {}",
-                targetDate, transitionType, normalizedRequest.analysisResult() != null);
+        log.info("Timeline generation requested for targetDate: {}, transition: {}, hasAnalysis: {}, customTimes: {}",
+                targetDate, transitionType, normalizedRequest.analysisResult() != null, request.shiftTimes() != null);
 
         TimelineMode mode = (normalizedRequest.analysisResult() != null) ? TimelineMode.TODAY : TimelineMode.FUTURE;
 
