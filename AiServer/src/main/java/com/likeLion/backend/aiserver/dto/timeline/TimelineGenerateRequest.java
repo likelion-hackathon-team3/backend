@@ -19,6 +19,9 @@ public record TimelineGenerateRequest(
         @Schema(description = "근무 전환 유형 (예: DAY_TO_NIGHT, EVENING_TO_DAY)", example = "DAY_TO_NIGHT")
         String transitionType,
 
+        @Schema(description = "호출 시점의 현재 시각 (HH:mm, 당일 모드 시 이 시각 이후의 잔여 일정 위주로 생성)", example = "16:30")
+        String currentTime,
+
         @Schema(description = "병원/사용자 맞춤 근무 시간대 설정 (선택적, 미입력 시 표준 시간 기준 적용)")
         ShiftTimesDto shiftTimes,
 
@@ -32,6 +35,17 @@ public record TimelineGenerateRequest(
             String transitionType,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, null, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, null, null, analysisResult);
+    }
+
+    public TimelineGenerateRequest(
+            LocalDate targetDate,
+            ShiftType currentShift,
+            ShiftType nextShift,
+            String transitionType,
+            ShiftTimesDto shiftTimes,
+            AnalysisResultDto analysisResult
+    ) {
+        this(targetDate, currentShift, nextShift, transitionType, null, shiftTimes, analysisResult);
     }
 }

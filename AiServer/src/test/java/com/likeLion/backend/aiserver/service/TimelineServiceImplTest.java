@@ -69,7 +69,7 @@ class TimelineServiceImplTest {
     }
 
     @Test
-    @DisplayName("analysisResult가 존재하면 TODAY 모드로 실시간 지표 반영 맞춤 타임라인을 생성한다")
+    @DisplayName("analysisResult와 currentTime이 존재하면 TODAY 모드로 실시간 지표 반영 맞춤 타임라인을 생성한다")
     void generateTimeline_todayMode() {
         // given
         LocalDate targetDate = LocalDate.of(2026, 8, 17);
@@ -85,6 +85,8 @@ class TimelineServiceImplTest {
                 ShiftType.EVENING,
                 ShiftType.DAY,
                 "EVENING_TO_DAY",
+                "23:00",
+                null,
                 analysisResult
         );
 
@@ -114,7 +116,10 @@ class TimelineServiceImplTest {
         assertThat(response.pageSubtitle()).contains("회복을 최우선");
         assertThat(response.timelineItems()).hasSize(5);
         assertThat(response.timelineItems().get(2).category()).isEqualTo(ActivityType.SLEEP);
-        verify(timelineAiGenerator).generateTodayTimeline(any());
+
+        ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
+        verify(timelineAiGenerator).generateTodayTimeline(captor.capture());
+        assertThat(captor.getValue().currentTime()).isEqualTo("23:00");
     }
 
     @Test
@@ -128,6 +133,7 @@ class TimelineServiceImplTest {
                 ShiftType.DAY,
                 ShiftType.NIGHT,
                 "DAY_TO_NIGHT",
+                "15:00",
                 customShiftTimes,
                 null
         );

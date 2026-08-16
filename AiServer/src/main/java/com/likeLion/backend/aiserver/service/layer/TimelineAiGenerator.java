@@ -15,11 +15,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
 @Component
 public class TimelineAiGenerator {
+
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final ChatModel chatModel;
 
@@ -45,6 +49,11 @@ public class TimelineAiGenerator {
     public RawTimelineAiResponse generateTodayTimeline(TimelineGenerateRequest request) {
         BeanOutputConverter<RawTimelineAiResponse> outputConverter = new BeanOutputConverter<>(RawTimelineAiResponse.class);
         Map<String, Object> modelMap = buildCommonModelMap(request, outputConverter);
+
+        String currentTime = (request.currentTime() != null && !request.currentTime().isBlank())
+                ? request.currentTime()
+                : LocalTime.now().format(TIME_FORMATTER);
+        modelMap.put("currentTime", currentTime);
 
         AnalysisResultDto analysis = request.analysisResult();
         if (analysis != null) {

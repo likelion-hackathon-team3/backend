@@ -27,7 +27,7 @@
 ## 2. AI 맞춤 타임라인 생성 API
 
 * **Endpoint**: `POST /api/timeline/generate`
-* **Description**: 16가지 근무 전환 패턴, 병원별 실제 근무 시간대, 실시간 통합 분석 지표(선택)를 바탕으로 당일(`TODAY`) 또는 미래(`FUTURE`) 맞춤형 생활 루틴 및 추천 가이드를 생성합니다.
+* **Description**: 16가지 근무 전환 패턴, 병원별 실제 근무 시간대, 호출 시점(현재 시각), 실시간 통합 분석 지표(선택)를 바탕으로 당일(`TODAY`) 또는 미래(`FUTURE`) 맞춤형 생활 루틴 및 추천 가이드를 생성합니다.
 * **Content-Type**: `application/json`
 
 ### Request (요청)
@@ -38,6 +38,7 @@
 | `currentShift` | string | N | 현재/기준일 근무 (`DAY`, `EVENING`, `NIGHT`, `OFF`). 기본값 `OFF` |
 | `nextShift` | string | N | 다음 근무 (`DAY`, `EVENING`, `NIGHT`, `OFF`). 기본값 `OFF` |
 | `transitionType` | string | N | 근무 전환 유형 (예: `EVENING_TO_DAY`). 미입력 시 자동 조합 |
+| `currentTime` | string | N | 호출 시점의 현재 시각 (HH:mm, 예: "16:30"). 당일 모드 시 이 시각 이후의 잔여 일정 위주로 생성 |
 | `shiftTimes` | object | N | 병원별 실제 교대 시간대 설정 (미입력 시 표준 시간 기준 적용) |
 | `↳ dayTime` | string | N | DAY 근무 시간대 (예: "06:30 ~ 14:30") |
 | `↳ eveningTime` | string | N | EVENING 근무 시간대 (예: "14:30 ~ 22:30") |
@@ -56,6 +57,7 @@
   "currentShift": "EVENING",
   "nextShift": "DAY",
   "transitionType": "EVENING_TO_DAY",
+  "currentTime": "23:00",
   "shiftTimes": {
     "dayTime": "06:30 ~ 14:30",
     "eveningTime": "14:30 ~ 22:30",
@@ -80,62 +82,10 @@
 | `mode` | string | 타임라인 생성 모드 (`TODAY` \| `FUTURE`) |
 | `pageTitle` | string | 메인 헤드라인 (상단 타이틀) |
 | `pageSubtitle` | string | 서브 헤드라인 (상단 서브타이틀) |
-| `timelineItems` | array | 시간순으로 정렬된 AI 웰니스 타임라인 리스트 |
+| `timelineItems` | array | 시간순으로 정렬된 AI 웰니스 타임라인 리스트 (현재 시각 이후 잔여 일정) |
 | `↳ time` | string | 시작/해당 시각 (HH:mm) |
 | `↳ title` | string | 일정 제목 |
 | `↳ description` | string | 상세 가이드 및 팁 |
 | `↳ category` | string | 활동 카테고리 (`MEAL`, `PREPARATION`, `SLEEP`, `WAKE_UP`, `WORK`, `NAP`, `REST`, `EXERCISE`, `FREE`) |
 | `↳ highlight` | string | 강조 문구 (수면 목표 등, 없을 시 null) |
 | `recommendations` | array(string) | AI 맞춤 추천 포인트 리스트 (3개) |
-
-### Response 예시
-```json
-{
-  "targetDate": "2026-07-12",
-  "mode": "TODAY",
-  "pageTitle": "오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요",
-  "pageSubtitle": "피로도가 높은 날이에요. 회복을 최우선으로 한 개인 맞춤 루틴입니다.",
-  "timelineItems": [
-    {
-      "time": "23:00",
-      "title": "저녁 식사",
-      "description": "단백질 위주의 가벼운 식사를 권장해요.",
-      "category": "MEAL",
-      "highlight": null
-    },
-    {
-      "time": "23:40",
-      "title": "취침 준비",
-      "description": "샤워 및 조명 낮추기, 디지털 기기 사용 줄이기",
-      "category": "PREPARATION",
-      "highlight": null
-    },
-    {
-      "time": "00:10",
-      "title": "취침 (권장 취침 시간)",
-      "description": "수면 목표 5시간 20분",
-      "category": "SLEEP",
-      "highlight": "권장 수면 시간: 5시간 20분"
-    },
-    {
-      "time": "05:30",
-      "title": "기상",
-      "description": "햇빛을 10분 이상 쬐고 물 한 잔을 마셔요.",
-      "category": "WAKE_UP",
-      "highlight": null
-    },
-    {
-      "time": "06:30",
-      "title": "D 근무 시작",
-      "description": "파이팅! 오늘도 잘 해내요!",
-      "category": "WORK",
-      "highlight": null
-    }
-  ],
-  "recommendations": [
-    "오늘은 수면 확보가 가장 중요해요.",
-    "카페인은 14시 이후 섭취를 피해 주세요.",
-    "낮잠이 필요하면 20분 이내로 짧게 유지하세요."
-  ]
-}
-```

@@ -45,8 +45,8 @@ class TimelineControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/timeline/generate - 커스텀 shiftTimes 및 실시간 분석 지표를 포함한 요청 정상 처리")
-    void generateTimeline_todayMode_withShiftTimes_success() throws Exception {
+    @DisplayName("POST /api/timeline/generate - currentTime, 커스텀 shiftTimes, 실시간 분석 지표를 포함한 요청 정상 처리")
+    void generateTimeline_todayMode_withCurrentTime_success() throws Exception {
         // given
         LocalDate targetDate = LocalDate.of(2026, 7, 12);
         ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30 ~ 14:30", "14:30 ~ 22:30", "22:30 ~ 익일 06:30");
@@ -55,6 +55,7 @@ class TimelineControllerTest {
                 ShiftType.EVENING,
                 ShiftType.DAY,
                 "EVENING_TO_DAY",
+                "23:00",
                 customShiftTimes,
                 new AnalysisResultDto(RiskLevel.CAUTION, RecoveryStatus.RECOVERY_NEEDED, FatigueLevel.HIGH, 6.5, 2)
         );
@@ -88,6 +89,7 @@ class TimelineControllerTest {
                 .andExpect(jsonPath("$.mode").value("TODAY"))
                 .andExpect(jsonPath("$.pageTitle").value("오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요"))
                 .andExpect(jsonPath("$.timelineItems").isArray())
+                .andExpect(jsonPath("$.timelineItems[0].time").value("23:00"))
                 .andExpect(jsonPath("$.timelineItems[0].category").value("MEAL"))
                 .andExpect(jsonPath("$.timelineItems[2].highlight").value("권장 수면 시간: 5시간 20분"));
     }
