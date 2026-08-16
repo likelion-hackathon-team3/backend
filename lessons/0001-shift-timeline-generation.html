@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson 0001: 교대근무 맞춤형 타임라인 설계 원리</title>
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="meta">Lesson 0001 &bull; Core Algorithm</div>
+            <h1>간호사 교대근무 맞춤 타임라인 생성의 4단계 원리</h1>
+            <p>16가지 불규칙한 교대근무 환경에서 수면 리듬을 보존하고 피로를 줄이는 타임테이블 구성 공식을 배웁니다.</p>
+        </header>
+
+        <section>
+            <h2>1. 타임라인 생성의 4단계 파이프라인</h2>
+            <div class="card">
+                <div class="timeline-step">
+                    <div class="step-num">1</div>
+                    <div>
+                        <strong>근무 시간대 고정 (Work Anchoring)</strong>
+                        <p>현재 근무(Current)와 다음 근무(Next)의 필수 실제 근무 시간(예: DAY 07:00~15:00, NIGHT 23:00~07:00)을 캘린더에 가장 먼저 절대 고정합니다.</p>
+                    </div>
+                </div>
+                <div class="timeline-step">
+                    <div class="step-num">2</div>
+                    <div>
+                        <strong>수면 전략 슬롯 배분 (Sleep Strategy)</strong>
+                        <p>근무 전환 유형에 따라 필수 수면 구간을 확보합니다.<br>
+                        &bull; <em>DAY &rarr; NIGHT</em>: 출근 전 18:00~20:30 사이 <strong>사전 쪽잠(Prophylactic Nap)</strong> 필수.<br>
+                        &bull; <em>EVENING &rarr; DAY</em>: 퇴근 즉시 조기 취침(24:00~05:30)으로 <strong>최소 5.5시간 수면</strong> 확보.<br>
+                        &bull; <em>NIGHT &rarr; DAY</em>: 퇴근 후 오전 1차 수면 + 밤 조기 2차 수면의 <strong>분할 수면(Split Sleep)</strong> 적용.</p>
+                    </div>
+                </div>
+                <div class="timeline-step">
+                    <div class="step-num">3</div>
+                    <div>
+                        <strong>실시간 지표 기반 압축 및 확장 (Dynamic Scaling)</strong>
+                        <p>가용시간(Available Hours)과 위험도(Risk Level)에 따라 일정을 조절합니다.<br>
+                        &bull; <em>가용시간 &lt; 6.0h (DANGER)</em>: 운동/자유시간을 배제하고 수면과 필수 식사만 남기는 <strong>극단적 압축 스케줄링</strong>.<br>
+                        &bull; <em>가용시간 &ge; 8.0h (NORMAL)</em>: 스트레칭 및 여유 휴식 시간을 추가 분배.</p>
+                    </div>
+                </div>
+                <div class="timeline-step">
+                    <div class="step-num">4</div>
+                    <div>
+                        <strong>생체 리듬 보조 활동 배치 (Secondary Routines)</strong>
+                        <p>수면 전 소화 시간을 고려한 식사(MEAL), 귀가 후 온수 샤워 및 이완(REST), 출근 전 스트레칭(EXERCISE)을 빈 슬롯에 겹치지 않게 채워 완성합니다.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>2. 핵심 지식 점검 (Interactive Quiz)</h2>
+            <div class="quiz-container">
+                <p><strong>Q. DAY 근무 후 다음날 NIGHT 근무(DAY &rarr; NIGHT)가 예정된 간호사에게 AI가 가장 최우선으로 배치해야 할 필수 일정은 무엇일까요?</strong></p>
+                
+                <div class="quiz-option" onclick="checkAnswer(1)">A. 출근 전 18:00경 2~3시간 사전 낮잠(NAP) 배치하기</div>
+                <div class="quiz-option" onclick="checkAnswer(2)">B. 퇴근 후 16:00경 1시간 고강도 유산소 운동 배치하기</div>
+                <div class="quiz-option" onclick="checkAnswer(3)">C. 출근 직전 22:00경 푸짐하고 기름진 야식 식사 배치하기</div>
+
+                <div id="quiz-feedback" class="feedback"></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>3. 추천 학습 자료 (Primary Source)</h2>
+            <p>미국 질병통제예방센터(CDC/NIOSH)의 공식 교대근무 간호사 가이드라인을 확인해 보세요:</p>
+            <p>&bull; <a href="https://www.cdc.gov/niosh/work-hour-training-for-nurses/default.html" target="_blank" rel="noopener">NIOSH Training for Nurses on Shift Work and Long Work Hours</a></p>
+        </section>
+
+        <footer>
+            <p>이해되지 않거나 더 깊이 알고 싶은 알고리즘 세부 사항이 있다면 AI 튜터에게 언제든 질문해 주세요!</p>
+        </footer>
+    </div>
+
+    <script>
+        function checkAnswer(selected) {
+            const fb = document.getElementById('quiz-feedback');
+            if (selected === 1) {
+                fb.className = 'feedback correct';
+                fb.innerHTML = '정답입니다! DAY &rarr; NIGHT 전환 시 야간 근무 중 졸림과 생체 리듬 붕괴를 막기 위해 출근 전 사전 낮잠(Prophylactic Nap) 확보가 최우선입니다.';
+            } else {
+                fb.className = 'feedback incorrect';
+                fb.innerHTML = '오답입니다. 나이트 근무 전 고강도 운동이나 소화 부담이 큰 야식은 피로를 가중시킵니다. 사전 낮잠(NAP)이 가장 중요합니다.';
+            }
+        }
+    </script>
+</body>
+</html>
