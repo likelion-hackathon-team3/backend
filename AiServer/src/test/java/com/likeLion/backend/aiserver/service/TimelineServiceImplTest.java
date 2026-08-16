@@ -41,14 +41,16 @@ class TimelineServiceImplTest {
                 null
         );
 
-        List<TimelineBlockDto> blocks = List.of(
-                new TimelineBlockDto("15:00", "16:00", ActivityType.REST, "퇴근 후 휴식", "가벼운 휴식"),
-                new TimelineBlockDto("18:00", "21:00", ActivityType.NAP, "사전 수면", "NIGHT 근무 전 필수 낮잠"),
-                new TimelineBlockDto("23:00", "07:00", ActivityType.WORK, "NIGHT 근무", "야간 근무")
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("15:00", "퇴근 후 휴식", "가벼운 휴식", ActivityType.REST, null),
+                new TimelineItemDto("18:00", "사전 수면", "NIGHT 근무 전 필수 낮잠", ActivityType.NAP, "권장 낮잠: 2시간"),
+                new TimelineItemDto("23:00", "NIGHT 근무 시작", "야간 근무", ActivityType.WORK, null)
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
-                "NIGHT 근무 전 충분한 사전 낮잠을 확보하세요!",
-                blocks
+                "오늘부터 내일 Night 근무 전까지의 맞춤 계획이에요",
+                "야간 근무 전 수면 확보를 최우선으로 합니다.",
+                items,
+                List.of("사전 낮잠을 꼭 확보하세요.", "야간 근무 전 수분 섭취를 늘리세요.")
         );
 
         given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
@@ -60,8 +62,9 @@ class TimelineServiceImplTest {
         assertThat(response).isNotNull();
         assertThat(response.targetDate()).isEqualTo(targetDate);
         assertThat(response.mode()).isEqualTo(TimelineMode.FUTURE);
-        assertThat(response.aiSummary()).contains("사전 낮잠");
-        assertThat(response.timelineBlocks()).hasSize(3);
+        assertThat(response.pageTitle()).contains("Night");
+        assertThat(response.timelineItems()).hasSize(3);
+        assertThat(response.recommendations()).hasSize(2);
         verify(timelineAiGenerator).generateFutureTimeline(any());
     }
 
@@ -85,14 +88,18 @@ class TimelineServiceImplTest {
                 analysisResult
         );
 
-        List<TimelineBlockDto> blocks = List.of(
-                new TimelineBlockDto("23:00", "23:30", ActivityType.REST, "빠른 귀가 및 샤워", "스트레스 완화"),
-                new TimelineBlockDto("23:45", "05:30", ActivityType.SLEEP, "집중 수면", "내일 DAY를 위한 조기 취침"),
-                new TimelineBlockDto("07:00", "15:00", ActivityType.WORK, "DAY 근무", "주간 근무")
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("23:30", "저녁 식사", "가벼운 식사", ActivityType.MEAL, null),
+                new TimelineItemDto("00:10", "취침 준비", "샤워 및 조명 낮추기", ActivityType.PREPARATION, null),
+                new TimelineItemDto("00:40", "취침", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
+                new TimelineItemDto("05:50", "기상", "햇빛 쬐기", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("07:00", "DAY 근무 시작", "주간 근무", ActivityType.WORK, null)
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
-                "피로도가 높으므로 퇴근 후 바로 취침하여 5시간 반 이상의 수면을 확보하세요.",
-                blocks
+                "오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요",
+                "피로도가 높은 날이에요. 회복을 최우선으로 한 개인 맞춤 루틴입니다.",
+                items,
+                List.of("오늘은 수면 확보가 가장 중요해요.", "카페인은 14시 이후 섭취를 피해 주세요.")
         );
 
         given(timelineAiGenerator.generateTodayTimeline(any())).willReturn(rawResponse);
@@ -104,8 +111,9 @@ class TimelineServiceImplTest {
         assertThat(response).isNotNull();
         assertThat(response.targetDate()).isEqualTo(targetDate);
         assertThat(response.mode()).isEqualTo(TimelineMode.TODAY);
-        assertThat(response.aiSummary()).contains("피로도가 높으므로");
-        assertThat(response.timelineBlocks()).hasSize(3);
+        assertThat(response.pageSubtitle()).contains("회복을 최우선");
+        assertThat(response.timelineItems()).hasSize(5);
+        assertThat(response.timelineItems().get(2).category()).isEqualTo(ActivityType.SLEEP);
         verify(timelineAiGenerator).generateTodayTimeline(any());
     }
 
@@ -121,10 +129,15 @@ class TimelineServiceImplTest {
                 null
         );
 
-        List<TimelineBlockDto> blocks = List.of(
-                new TimelineBlockDto("08:30", "13:00", ActivityType.SLEEP, "퇴근 후 수면", "1차 수면")
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("08:30", "퇴근 후 수면", "1차 수면", ActivityType.SLEEP, "권장 수면: 4시간 30분")
         );
-        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse("NIGHT 퇴근 후 오전 수면으로 리듬을 되찾으세요.", blocks);
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "NIGHT 퇴근 후 OFF 일정 계획",
+                "오전 수면으로 리듬을 회복하세요.",
+                items,
+                List.of("오후에는 햇볕을 쬐세요.")
+        );
         given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
 
         // when

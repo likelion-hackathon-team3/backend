@@ -57,8 +57,10 @@ public class TimelineServiceImpl implements TimelineService {
         return new TimelineGenerateResponse(
                 targetDate,
                 mode,
-                rawResponse.aiSummary(),
-                rawResponse.timelineBlocks()
+                rawResponse.pageTitle(),
+                rawResponse.pageSubtitle(),
+                rawResponse.timelineItems(),
+                rawResponse.recommendations()
         );
     }
 }

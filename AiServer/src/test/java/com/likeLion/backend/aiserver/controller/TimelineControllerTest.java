@@ -45,25 +45,34 @@ class TimelineControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/timeline/generate - 당일 실시간 맞춤 요청 시 TODAY 모드 응답 반환")
+    @DisplayName("POST /api/timeline/generate - 당일 실시간 맞춤 요청 시 TODAY 모드 및 프론트엔드 명세 응답 반환")
     void generateTimeline_todayMode_success() throws Exception {
         // given
-        LocalDate targetDate = LocalDate.of(2026, 8, 17);
+        LocalDate targetDate = LocalDate.of(2026, 7, 12);
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 targetDate,
+                ShiftType.EVENING,
                 ShiftType.DAY,
-                ShiftType.NIGHT,
-                "DAY_TO_NIGHT",
+                "EVENING_TO_DAY",
                 new AnalysisResultDto(RiskLevel.CAUTION, RecoveryStatus.RECOVERY_NEEDED, FatigueLevel.HIGH, 6.5, 2)
         );
 
         TimelineGenerateResponse response = new TimelineGenerateResponse(
                 targetDate,
                 TimelineMode.TODAY,
-                "충분한 휴식을 취하세요.",
+                "오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요",
+                "회복을 최우선으로 한 개인 맞춤 루틴입니다.",
                 List.of(
-                        new TimelineBlockDto("18:00", "20:30", ActivityType.NAP, "낮잠", "수면 보충"),
-                        new TimelineBlockDto("23:00", "07:00", ActivityType.WORK, "NIGHT 근무", "야간 근무")
+                        new TimelineItemDto("23:30", "저녁 식사", "단백질 위주의 가벼운 식사를 권장해요.", ActivityType.MEAL, null),
+                        new TimelineItemDto("00:10", "취침 준비", "조명 낮추기, 샤워", ActivityType.PREPARATION, null),
+                        new TimelineItemDto("00:40", "취침 (권장 취침 시간)", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
+                        new TimelineItemDto("05:50", "기상", "햇빛을 10분 이상 쬐고 물 한 잔을 마셔요.", ActivityType.WAKE_UP, null),
+                        new TimelineItemDto("07:00", "D 근무 시작", "파이팅! 오늘도 잘 해내요!", ActivityType.WORK, null)
+                ),
+                List.of(
+                        "오늘은 수면 확보가 가장 중요해요.",
+                        "카페인은 14시 이후 섭취를 피해 주세요.",
+                        "낮잠이 필요하면 20분 이내로 짧게 유지하세요."
                 )
         );
 
@@ -74,35 +83,40 @@ class TimelineControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.targetDate").value("2026-08-17"))
+                .andExpect(jsonPath("$.targetDate").value("2026-07-12"))
                 .andExpect(jsonPath("$.mode").value("TODAY"))
-                .andExpect(jsonPath("$.aiSummary").value("충분한 휴식을 취하세요."))
-                .andExpect(jsonPath("$.timelineBlocks").isArray())
-                .andExpect(jsonPath("$.timelineBlocks[0].activityType").value("NAP"))
-                .andExpect(jsonPath("$.timelineBlocks[0].title").value("낮잠"));
+                .andExpect(jsonPath("$.pageTitle").value("오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요"))
+                .andExpect(jsonPath("$.pageSubtitle").value("회복을 최우선으로 한 개인 맞춤 루틴입니다."))
+                .andExpect(jsonPath("$.timelineItems").isArray())
+                .andExpect(jsonPath("$.timelineItems[0].category").value("MEAL"))
+                .andExpect(jsonPath("$.timelineItems[2].highlight").value("권장 수면 시간: 5시간 10분"))
+                .andExpect(jsonPath("$.recommendations").isArray())
+                .andExpect(jsonPath("$.recommendations[0]").value("오늘은 수면 확보가 가장 중요해요."));
     }
 
     @Test
-    @DisplayName("POST /api/timeline/generate - 분석 결과 없는 미래 날짜 요청 시 FUTURE 모드 응답 반환")
+    @DisplayName("POST /api/timeline/generate - 미래 날짜 요청 시 FUTURE 모드 응답 반환")
     void generateTimeline_futureMode_success() throws Exception {
         // given
-        LocalDate targetDate = LocalDate.of(2026, 8, 22);
+        LocalDate targetDate = LocalDate.of(2026, 7, 15);
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 targetDate,
-                ShiftType.EVENING,
                 ShiftType.DAY,
-                "EVENING_TO_DAY",
+                ShiftType.NIGHT,
+                "DAY_TO_NIGHT",
                 null
         );
 
         TimelineGenerateResponse response = new TimelineGenerateResponse(
                 targetDate,
                 TimelineMode.FUTURE,
-                "내일 DAY 근무를 위해 오늘 밤 일찍 취침하세요.",
+                "오늘부터 내일 Night 근무 전까지의 맞춤 계획이에요",
+                "표준 교대 루틴에 맞춘 일정입니다.",
                 List.of(
-                        new TimelineBlockDto("23:00", "23:30", ActivityType.REST, "퇴근 후 샤워", "스트레스 완화"),
-                        new TimelineBlockDto("24:00", "05:30", ActivityType.SLEEP, "취침", "조기 취침")
-                )
+                        new TimelineItemDto("18:00", "사전 쪽잠", "야간 근무 전 필수 수면", ActivityType.NAP, "권장 낮잠: 2시간"),
+                        new TimelineItemDto("23:00", "NIGHT 근무 시작", "야간 근무", ActivityType.WORK, null)
+                ),
+                List.of("출근 전 낮잠을 꼭 확보하세요.")
         );
 
         given(timelineService.generateTimeline(any(TimelineGenerateRequest.class))).willReturn(response);
@@ -112,11 +126,9 @@ class TimelineControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.targetDate").value("2026-08-22"))
+                .andExpect(jsonPath("$.targetDate").value("2026-07-15"))
                 .andExpect(jsonPath("$.mode").value("FUTURE"))
-                .andExpect(jsonPath("$.aiSummary").value("내일 DAY 근무를 위해 오늘 밤 일찍 취침하세요."))
-                .andExpect(jsonPath("$.timelineBlocks").isArray())
-                .andExpect(jsonPath("$.timelineBlocks[0].activityType").value("REST"))
-                .andExpect(jsonPath("$.timelineBlocks[1].activityType").value("SLEEP"));
+                .andExpect(jsonPath("$.pageTitle").value("오늘부터 내일 Night 근무 전까지의 맞춤 계획이에요"))
+                .andExpect(jsonPath("$.timelineItems[0].category").value("NAP"));
     }
 }
