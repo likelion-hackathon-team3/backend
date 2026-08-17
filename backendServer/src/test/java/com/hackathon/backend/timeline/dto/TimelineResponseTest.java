@@ -43,6 +43,21 @@ class TimelineResponseTest {
     }
 
     @Test
+    void isFallback_false로_명시하면_그대로_직렬화된다() {
+        TimelineItemResponse item = new TimelineItemResponse(
+                "23:30", "취침 준비", "설명", "PREPARATION", null);
+        TimelineData data = new TimelineData("제목", "부제목", List.of(item), List.of());
+        TimelineResponse response = TimelineResponse.ok(data, false);
+
+        JsonNode json = jsonMapper.valueToTree(response);
+
+        assertThat(json.get("success").asBoolean()).isTrue();
+        assertThat(json.get("isFallback").asBoolean()).isFalse();
+        assertThat(json.has("message")).isFalse();
+        assertThat(json.get("data").get("pageTitle").asString()).isEqualTo("제목");
+    }
+
+    @Test
     void highlight가_null이면_highlight만_응답에서_생략된다() {
         TimelineItemResponse item = new TimelineItemResponse(
                 "07:00", "D 근무 시작", "파이팅! 오늘도 잘 해내요!", "WORK", null);

@@ -29,7 +29,13 @@ public class TimelineResponse {
         return new TimelineResponse(false, null, null, message);
     }
 
+    // isFallback 생략 시 기존 fallback 호출부와 동일하게 true로 채운다(의미 변경 없음).
     public static TimelineResponse ok(TimelineData data) {
-        return new TimelineResponse(true, true, data, null);
+        return ok(data, true);
+    }
+
+    // AI 성공 시 isFallback=false로 명시적으로 만들 때 사용한다.
+    public static TimelineResponse ok(TimelineData data, boolean isFallback) {
+        return new TimelineResponse(true, isFallback, data, null);
     }
 }
