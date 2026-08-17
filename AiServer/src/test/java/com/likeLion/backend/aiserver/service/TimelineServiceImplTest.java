@@ -129,7 +129,7 @@ class TimelineServiceImplTest {
     void generateTimeline_withCustomShiftTimes() {
         // given
         LocalDate targetDate = LocalDate.of(2026, 8, 20);
-        ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30 ~ 14:30", "14:30 ~ 22:30", "22:30 ~ 익일 06:30");
+        ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30", "14:30", "14:30", "22:30", "22:30", "06:30");
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 targetDate,
                 ShiftType.DAY,
@@ -153,7 +153,8 @@ class TimelineServiceImplTest {
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
         verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
         assertThat(captor.getValue().shiftTimes()).isNotNull();
-        assertThat(captor.getValue().shiftTimes().dayTime()).isEqualTo("06:30 ~ 14:30");
+        assertThat(captor.getValue().shiftTimes().dayStart()).isEqualTo("06:30");
+        assertThat(captor.getValue().shiftTimes().dayEnd()).isEqualTo("14:30");
     }
 
     @Test
@@ -187,5 +188,40 @@ class TimelineServiceImplTest {
         verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
         assertThat(captor.getValue().transitionType()).isEqualTo("NIGHT_TO_OFF");
         assertThat(response.targetDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    @DisplayName("currentWorkEnd, nextWorkStart, commuteMinutes가 주어지면 정상 전달된다")
+    void generateTimeline_withWorkEndAndStartAndCommute() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 17);
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.NIGHT,
+                "DAY_TO_NIGHT",
+                "00:15",
+                "2026-08-17T15:00",
+                "2026-08-18T23:00",
+                45,
+                "조용한 수면 선호",
+                null,
+                null
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", List.of(), List.of()
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+
+        // when
+        timelineService.generateTimeline(request);
+
+        // then
+        ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        assertThat(captor.getValue().currentWorkEnd()).isEqualTo("2026-08-17T15:00");
+        assertThat(captor.getValue().nextWorkStart()).isEqualTo("2026-08-18T23:00");
+        assertThat(captor.getValue().commuteMinutes()).isEqualTo(45);
     }
 }

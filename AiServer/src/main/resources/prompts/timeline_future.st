@@ -3,16 +3,17 @@
 
 ## 1. 대상 정보
 - 대상 날짜 (Target Date): {targetDate}
-- 현재/기준 근무 (Current Shift): {currentShift}
-- 다음 근무 (Next Shift): {nextShift}
+- 현재/기준 근무 (Current Shift): {currentShift} (실제 퇴근 일시: {currentWorkEnd})
+- 다음 근무 (Next Shift): {nextShift} (실제 출근 일시: {nextWorkStart})
 - 근무 전환 유형 (Transition Type): {transitionType}
+- **편도 통근 시간 (Commute Time)**: {commuteMinutes}분
 - **사용자 개인 특이사항 및 선호 메모**: {userNotes}
 
 ## 2. 대상 병원의 교대 근무 시간표
 - DAY: {dayTime}
 - EVENING: {eveningTime}
 - NIGHT: {nightTime}
-- OFF: 휴무
+- OFF: 휴무 (제공된 실제 퇴근/출근 일시 및 통근 시간을 바탕으로 유동적으로 일정을 계획하세요.)
 
 ## 3. 16가지 근무 전환별 생체 리듬 및 역산 원칙
 1. **DAY -> DAY**: DAY 퇴근 후 저녁 일상, 취침 1.5시간 전 식사 완료, 다음 날 DAY 출근 1시간 전 기상

@@ -39,11 +39,17 @@
 | `nextShift` | string | N | 다음 근무 (`DAY`, `EVENING`, `NIGHT`, `OFF`). 기본값 `OFF` |
 | `transitionType` | string | N | 근무 전환 유형 (예: `EVENING_TO_DAY`). 미입력 시 자동 조합 |
 | `currentTime` | string | N | 호출 시점의 현재 시각 (HH:mm, 예: "16:30"). 당일 모드 시 이 시각 이후의 잔여 일정 위주로 생성 |
+| `currentWorkEnd` | string | N | 현재 근무 실제 퇴근 일시 (ISO-8601, 예: "2026-08-17T15:00", OFF 시 null) |
+| `nextWorkStart` | string | N | 다음 근무 실제 출근 일시 (ISO-8601, 예: "2026-08-18T23:00", OFF 시 null) |
+| `commuteMinutes` | number | N | 편도 통근 시간 (분 단위, 예: 30, 미입력 시 기본 30분 적용) |
 | `userNotes` | string | N | 사용자 개인 특이사항 및 선호 메모 (예: "카페인에 민감함", "수면 안대 필수") |
 | `shiftTimes` | object | N | 병원별 실제 교대 시간대 설정 (미입력 시 표준 시간 기준 적용) |
-| `↳ dayTime` | string | N | DAY 근무 시간대 (예: "06:30 ~ 14:30") |
-| `↳ eveningTime` | string | N | EVENING 근무 시간대 (예: "14:30 ~ 22:30") |
-| `↳ nightTime` | string | N | NIGHT 근무 시간대 (예: "22:30 ~ 익일 06:30") |
+| `↳ dayStart` | string | N | DAY 근무 시작 시각 (예: "07:00") |
+| `↳ dayEnd` | string | N | DAY 근무 종료 시각 (예: "15:00") |
+| `↳ eveningStart` | string | N | EVENING 근무 시작 시각 (예: "15:00") |
+| `↳ eveningEnd` | string | N | EVENING 근무 종료 시각 (예: "23:00") |
+| `↳ nightStart` | string | N | NIGHT 근무 시작 시각 (예: "23:00") |
+| `↳ nightEnd` | string | N | NIGHT 근무 종료 시각 (예: "07:00") |
 | `analysisResult` | object | N | 실시간 통합 분석 결과 (**포함 시 TODAY 모드, 생략 시 FUTURE 모드로 자동 분기**) |
 | `↳ riskLevel` | string | Y | 위험도 (`NORMAL`, `CAUTION`, `DANGER`) |
 | `↳ recoveryStatus` | string | Y | 회복 상태 (`GOOD`, `RECOVERY_NEEDED`, `RECOVERY_PRIORITY`) |

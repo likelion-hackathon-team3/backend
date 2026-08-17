@@ -4,9 +4,10 @@
 ## 1. 대상 및 실시간 분석 정보
 - 대상 날짜 (Target Date): {targetDate}
 - **호출 시점 현재 시각 (Current Time)**: {currentTime}
-- 현재/기준 근무 (Current Shift): {currentShift}
-- 다음 근무 (Next Shift): {nextShift}
+- 현재/기준 근무 (Current Shift): {currentShift} (실제 퇴근 일시: {currentWorkEnd})
+- 다음 근무 (Next Shift): {nextShift} (실제 출근 일시: {nextWorkStart})
 - 근무 전환 유형 (Transition Type): {transitionType}
+- **편도 통근 시간 (Commute Time)**: {commuteMinutes}분
 - 근무 패턴 위험도 (Risk Level): {riskLevel} (NORMAL / CAUTION / DANGER)
 - 회복 상태 (Recovery Status): {recoveryStatus} (GOOD / RECOVERY_NEEDED / RECOVERY_PRIORITY)
 - 현재 피로도 (Fatigue Level): {fatigueLevel} (LOW / MEDIUM / HIGH)
@@ -22,7 +23,8 @@
 
 ## 3. 동적 역산 스케줄링 핵심 원칙 (Dynamic Reverse-Scheduling)
 1. **시간 지평선 앵커링**:
-   - 현재 시각({currentTime}) 또는 오늘 근무 퇴근 직후 시점부터 다음 근무 출근 시각 사이의 남은 시간 구간을 파악하세요.
+   - 현재 시각({currentTime}) 또는 오늘 근무 실제 퇴근 일시({currentWorkEnd})부터 다음 근무 실제 출근 일시({nextWorkStart}) 사이의 남은 시간 구간을 기준으로 일정을 생성하세요. (NIGHT 근무 등 자정이 넘어가는 교대일정도 제공된 실제 일시를 기준으로 안전하게 계산하세요.)
+   - 출퇴근 이동 시 편도 {commuteMinutes}분의 통근 이동 시간 및 준비 시간을 고려하세요.
    - **이미 지나간 과거 시간대(예: 현재가 16:30인데 아침 08:00 일정)는 절대 생성하지 마세요.**
 2. **생체 리듬 기반 시간 간격 역산**:
    - 취침 1.5~2시간 전 가벼운 식사(소화 확보) 및 30분 전 취침 준비(조명 낮추기/샤워).

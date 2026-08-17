@@ -49,7 +49,7 @@ class TimelineControllerTest {
     void generateTimeline_todayMode_withUserNotes_success() throws Exception {
         // given
         LocalDate targetDate = LocalDate.of(2026, 7, 12);
-        ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30 ~ 14:30", "14:30 ~ 22:30", "22:30 ~ 익일 06:30");
+        ShiftTimesDto customShiftTimes = new ShiftTimesDto("06:30", "14:30", "14:30", "22:30", "22:30", "06:30");
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 targetDate,
                 ShiftType.EVENING,

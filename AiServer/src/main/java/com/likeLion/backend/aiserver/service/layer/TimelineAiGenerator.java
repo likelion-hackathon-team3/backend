@@ -81,6 +81,9 @@ public class TimelineAiGenerator {
         map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : "OFF");
         map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : "OFF");
         map.put("transitionType", request.transitionType() != null ? request.transitionType() : "OFF_TO_OFF");
+        map.put("currentWorkEnd", (request.currentWorkEnd() != null && !request.currentWorkEnd().isBlank()) ? request.currentWorkEnd() : "해당 없음");
+        map.put("nextWorkStart", (request.nextWorkStart() != null && !request.nextWorkStart().isBlank()) ? request.nextWorkStart() : "해당 없음");
+        map.put("commuteMinutes", request.commuteMinutes() != null ? request.commuteMinutes() : 30);
         map.put("userNotes", (request.userNotes() != null && !request.userNotes().isBlank()) ? request.userNotes() : "없음");
 
         ShiftTimesDto shiftTimes = request.shiftTimes();
