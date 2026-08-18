@@ -15,11 +15,9 @@
 - 연속 근무 일수 (Consecutive Days): {consecutiveDays}일
 - **사용자 개인 특이사항 및 선호 메모**: {userNotes}
 
-## 2. 과거 피드백 기반 개인화 보정 지표 (Personalization Metrics)
-- **추가 권장 수면 버퍼 (Sleep Buffer)**: +{recommendedSleepBuffer}분 (과거 동일 패턴 피로 분석을 바탕으로 기본 수면 시간에 추가로 확보해야 할 수면 분)
-- **카페인 차단 권장 시각 (Caffeine Cutoff)**: {adjustedCaffeineCutoff} (이 시각 이후에는 수면 질 보호를 위해 카페인 섭취 중단 권장)
-- **피로 반복 패턴 감지 (Repeated Pattern)**: {hasRepeatedPattern}
-- **개인화 맞춤 피드백 요약**: {personalizationMessage}
+## 2. 과거 피드백 기반 개인화 보정 제약조건 (Personalization Constraints)
+- **추가 권장 수면 버퍼 (Sleep Buffer)**: +{recommendedSleepBuffer}분 (과거 수면 부족 또는 피로 이력을 반영하여 기본 수면에 추가 확보를 고려할 최대 수면 분)
+- **카페인 차단 권장 시각 (Caffeine Cutoff)**: {adjustedCaffeineCutoff} (과거 수면 방해 이력을 반영하여 이 시각 이후 카페인 섭취 중단 강력 권장)
 
 ## 3. 대상 병원의 교대 근무 시간표
 - DAY: {dayTime}
@@ -47,10 +45,9 @@
      - 23:00 - 35분(통근) - 30분(준비) = 21:55가 낮잠 종료 마지노선입니다.
      - 따라서 90분 낮잠을 권장하려면 20:00~21:30으로 배치하고, 18:30 식사 → 20:00 낮잠 → 21:30 기상 → 21:55 출근 준비 순서로 구성해야 합니다.
 
-4. **개인화 보정 지표 반영 지침**:
-   - **수면 시간 가산**: 본 수면(SLEEP) 시간 배분 시 `{recommendedSleepBuffer}`분이 0보다 큰 경우 해당 시간만큼 수면 목표를 추가 확보하고, highlight 필드에 이를 표기(예: "권장 수면: 7시간 20분 (피로 회복 +20분 반영)")하세요.
-   - **카페인 섭취 중단**: `{adjustedCaffeineCutoff}`가 지정된 경우, 해당 시간대 이후의 MEAL/REST 항목 설명 또는 recommendations에 "해당 시각 이후 카페인 섭취 중단 및 수분/디카페인 음료 섭취"를 필수 안내하세요.
-   - **공감형 메시지 반영**: `{personalizationMessage}` 및 `{userNotes}`의 내용을 서브타이틀(pageSubtitle)이나 recommendations에 적극 반영하여 맞춤 코칭을 제공하세요.
+4. **개인화 보정 제약조건 반영 지침 (Elastic Constraints)**:
+   - **탄력적 수면 가산**: `{recommendedSleepBuffer}`분이 0보다 큰 경우, 잔여 가용시간({availableHours}시간)이 충분하면 기본 수면에 최대 해당 시간만큼 수면/휴식을 추가 확보하고 highlight(예: "권장 수면: 7시간 30분 (피로 회복 +30분 반영)")에 표시하세요. 단, 가용시간이 촉박한 경우에는 출근/통근 시간을 침범하지 않는 범위 내에서만 탄력적으로 가산하세요.
+   - **카페인 섭취 중단 제약**: `{adjustedCaffeineCutoff}`가 "해당 없음"이 아닌 경우, 해당 시각 이후의 MEAL/REST 항목 설명 또는 recommendations에 "해당 시각 이후 카페인 섭취 중단 및 수분/디카페인 음료 섭취"를 필수 안내하세요.
 
 5. **근무 패턴별 수면 및 기상 현실화**:
    - **`DAY -> EVENING` 또는 `OFF -> EVENING`**: 다음 출근이 오후 15:00 등 늦은 시간이면 주 수면(SLEEP) 시 새벽 05:00에 무리하게 기상시키지 말고, 충분한 7~8시간의 수면을 보장하여 오전 07:30~09:00 사이에 기상(WAKE_UP)하도록 계획하세요.
@@ -80,7 +77,7 @@
 ## 6. 생성 지침 및 언어 품질
 - 모든 한국어 문장은 어색함이나 글리치 없이 자연스럽고 따뜻한 어조로 생성하세요.
 - pageTitle: "오늘부터 내일 {nextShift} 근무 전까지의 맞춤 계획이에요" 등 다음 근무를 직관적으로 안내하는 메인 타이틀
-- pageSubtitle: 피로도, 연속근무일수, 회복상태 및 개인화 피드백에 깊이 공감하는 따뜻한 서브 타이틀
+- pageSubtitle: 피로도, 연속근무일수, 회복상태에 깊이 공감하는 따뜻한 서브 타이틀
 - timelineItems:
   - 현재 시각({currentTime}) 이후부터 다음 출근 시각까지 **반드시 시간순("time": "HH:mm")으로 정렬된 4~7개의 일정 리스트**
   - highlight 필드는 중요한 수면 시간(예: "권장 수면 시간: 5시간 10분")이나 핵심 강조 사항에만 작성

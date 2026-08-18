@@ -9,11 +9,9 @@
 - **편도 통근 시간 (Commute Time)**: {commuteMinutes}분
 - **사용자 개인 특이사항 및 선호 메모**: {userNotes}
 
-## 2. 과거 피드백 기반 개인화 보정 지표 (Personalization Metrics)
-- **추가 권장 수면 버퍼 (Sleep Buffer)**: +{recommendedSleepBuffer}분 (과거 동일 패턴 피로 분석을 바탕으로 기본 수면 시간에 추가로 확보해야 할 수면 분)
-- **카페인 차단 권장 시각 (Caffeine Cutoff)**: {adjustedCaffeineCutoff} (이 시각 이후에는 수면 질 보호를 위해 카페인 섭취 중단 권장)
-- **피로 반복 패턴 감지 (Repeated Pattern)**: {hasRepeatedPattern}
-- **개인화 맞춤 피드백 요약**: {personalizationMessage}
+## 2. 과거 피드백 기반 개인화 보정 제약조건 (Personalization Constraints)
+- **추가 권장 수면 버퍼 (Sleep Buffer)**: +{recommendedSleepBuffer}분 (과거 수면 부족 또는 피로 이력을 반영하여 기본 수면에 추가 확보를 고려할 최대 수면 분)
+- **카페인 차단 권장 시각 (Caffeine Cutoff)**: {adjustedCaffeineCutoff} (과거 수면 방해 이력을 반영하여 이 시각 이후 카페인 섭취 중단 강력 권장)
 
 ## 3. 대상 병원의 교대 근무 시간표
 - DAY: {dayTime}
@@ -37,10 +35,9 @@
      - 23:00 - 35분(통근) - 30분(준비) = 21:55가 낮잠 종료 마지노선입니다.
      - 따라서 90분 낮잠을 권장하려면 20:00~21:30으로 배치하고, 18:30 식사 → 20:00 낮잠 → 21:30 기상 → 21:55 출근 준비 순서로 구성해야 합니다.
 
-3. **개인화 보정 지표 반영 지침**:
-   - **수면 시간 가산**: 본 수면(SLEEP) 시간 배분 시 `{recommendedSleepBuffer}`분이 0보다 큰 경우 해당 시간만큼 수면 목표를 추가 확보하고, highlight 필드에 이를 표기(예: "권장 수면: 7시간 30분 (개인 회복 +30분 반영)")하세요.
-   - **카페인 섭취 중단**: `{adjustedCaffeineCutoff}`가 지정된 경우, 해당 시간대 이후의 MEAL/REST 항목 설명 또는 recommendations에 "해당 시각 이후 카페인 섭취 중단 및 디카페인 음료 섭취"를 필수 안내하세요.
-   - **공감형 메시지 반영**: `{personalizationMessage}` 및 `{userNotes}`의 내용을 서브타이틀(pageSubtitle)이나 recommendations에 적극 반영하여 맞춤 코칭을 제공하세요.
+3. **개인화 보정 제약조건 반영 지침 (Elastic Constraints)**:
+   - **탄력적 수면 가산**: `{recommendedSleepBuffer}`분이 0보다 큰 경우, 기본 수면에 최대 해당 시간만큼 수면/휴식을 추가 확보하고 highlight(예: "권장 수면: 7시간 30분 (개인 회복 +30분 반영)")에 표시하세요.
+   - **카페인 섭취 중단 제약**: `{adjustedCaffeineCutoff}`가 "해당 없음"이 아닌 경우, 해당 시각 이후의 MEAL/REST 항목 설명 또는 recommendations에 "해당 시각 이후 카페인 섭취 중단 및 디카페인 음료 섭취"를 필수 안내하세요.
 
 4. **근무 전 식사 (MEAL) 필수 보장**:
    - 다음 출근 1.5~2시간 전에 식사 또는 가벼운 에너지 보충 일정을 반드시 포함하세요. 공복 출근을 방지해야 합니다.

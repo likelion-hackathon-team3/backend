@@ -106,13 +106,9 @@ public class TimelineAiGenerator {
         if (personalization != null) {
             map.put("recommendedSleepBuffer", String.valueOf(personalization.sleepBufferOrDefault()));
             map.put("adjustedCaffeineCutoff", personalization.caffeineCutoffOrDefault());
-            map.put("hasRepeatedPattern", String.valueOf(Boolean.TRUE.equals(personalization.hasRepeatedPattern())));
-            map.put("personalizationMessage", personalization.messageOrDefault());
         } else {
             map.put("recommendedSleepBuffer", "0");
             map.put("adjustedCaffeineCutoff", "해당 없음");
-            map.put("hasRepeatedPattern", "false");
-            map.put("personalizationMessage", "없음");
         }
 
         ShiftTimesDto shiftTimes = request.shiftTimes();

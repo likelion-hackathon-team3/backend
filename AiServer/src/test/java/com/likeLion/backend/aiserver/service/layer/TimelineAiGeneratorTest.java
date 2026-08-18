@@ -38,7 +38,7 @@ class TimelineAiGeneratorTest {
 
     @BeforeEach
     void setUp() {
-        String dummyPrompt = "Test template {targetDate} {transitionType} {commuteMinutes} {nextWorkStart} {recommendedSleepBuffer} {adjustedCaffeineCutoff} {personalizationMessage} {format}";
+        String dummyPrompt = "Test template {targetDate} {transitionType} {commuteMinutes} {nextWorkStart} {recommendedSleepBuffer} {adjustedCaffeineCutoff} {format}";
         ByteArrayResource resource = new ByteArrayResource(dummyPrompt.getBytes(StandardCharsets.UTF_8));
         ReflectionTestUtils.setField(timelineAiGenerator, "futurePromptResource", resource);
         ReflectionTestUtils.setField(timelineAiGenerator, "todayPromptResource", resource);
@@ -101,15 +101,10 @@ class TimelineAiGeneratorTest {
     }
 
     @Test
-    @DisplayName("PersonalizationDto가 주어지면 프롬프트 렌더링에 수면 버퍼, 카페인 컷오프 시각, 피드백 문구가 정확히 전달된다")
+    @DisplayName("PersonalizationDto가 주어지면 프롬프트 렌더링에 수면 버퍼 및 카페인 컷오프 시각이 정확히 전달된다")
     void generateTodayTimeline_withPersonalization() {
         // given
-        PersonalizationDto personalization = new PersonalizationDto(
-                45,
-                "14:30",
-                true,
-                "지난 동일 패턴 피로 누적 반영: 수면 45분 추가 권장"
-        );
+        PersonalizationDto personalization = new PersonalizationDto(30, "14:30");
 
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 LocalDate.of(2026, 8, 17),
@@ -129,7 +124,7 @@ class TimelineAiGeneratorTest {
         String mockAiJson = """
                 {
                     "pageTitle": "맞춤 타임라인",
-                    "pageSubtitle": "피로 회복을 위해 수면 45분을 추가했습니다.",
+                    "pageSubtitle": "피로 회복을 위해 수면 30분을 추가했습니다.",
                     "timelineItems": [],
                     "recommendations": ["14:30 이후 카페인 섭취를 중단하세요."]
                 }
@@ -148,8 +143,7 @@ class TimelineAiGeneratorTest {
         verify(chatModel).call(promptCaptor.capture());
 
         String renderedPrompt = promptCaptor.getValue().getContents();
-        assertThat(renderedPrompt).contains("45");
+        assertThat(renderedPrompt).contains("30");
         assertThat(renderedPrompt).contains("14:30");
-        assertThat(renderedPrompt).contains("지난 동일 패턴 피로 누적 반영");
     }
 }

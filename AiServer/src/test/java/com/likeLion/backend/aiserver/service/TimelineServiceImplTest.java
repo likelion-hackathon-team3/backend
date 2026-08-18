@@ -230,7 +230,7 @@ class TimelineServiceImplTest {
     void generateTimeline_withPersonalization() {
         // given
         LocalDate targetDate = LocalDate.of(2026, 8, 17);
-        PersonalizationDto personalization = new PersonalizationDto(30, "14:30", true, "피로 누적 주의");
+        PersonalizationDto personalization = new PersonalizationDto(30, "14:30");
         TimelineGenerateRequest request = new TimelineGenerateRequest(
                 targetDate,
                 ShiftType.DAY,
@@ -260,7 +260,6 @@ class TimelineServiceImplTest {
         assertThat(captor.getValue().personalization()).isNotNull();
         assertThat(captor.getValue().personalization().recommendedSleepBuffer()).isEqualTo(30);
         assertThat(captor.getValue().personalization().adjustedCaffeineCutoff()).isEqualTo("14:30");
-        assertThat(captor.getValue().personalization().hasRepeatedPattern()).isTrue();
     }
 
     @Test

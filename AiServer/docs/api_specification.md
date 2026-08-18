@@ -50,11 +50,9 @@
 | `↳ eveningEnd` | string | N | EVENING 근무 종료 시각 (예: "23:00") |
 | `↳ nightStart` | string | N | NIGHT 근무 시작 시각 (예: "23:00") |
 | `↳ nightEnd` | string | N | NIGHT 근무 종료 시각 (예: "07:00") |
-| `personalization` | object | N | 과거 피드백 기반 개인화 보정 지표 (선택적) |
-| `↳ recommendedSleepBuffer` | number | N | 추가 권장 수면 시간 (분 단위, 예: 30) |
+| `personalization` | object | N | 과거 피드백 기반 개인화 보정 제약조건 (선택적) |
+| `↳ recommendedSleepBuffer` | number | N | 추가 권장 수면 시간 (분 단위, 예: 30, 가용시간 내 최대 탄력 가산) |
 | `↳ adjustedCaffeineCutoff` | string | N | 카페인 섭취 차단 권장 시각 ("HH:mm", 예: "14:30") |
-| `↳ hasRepeatedPattern` | boolean | N | 취약/피로 반복 패턴 감지 여부 (예: true) |
-| `↳ personalizationMessage` | string | N | 개인화 안내 문구 (예: "지난 피로 누적 반영: 수면 30분 추가 권장") |
 | `analysisResult` | object | N | 실시간 통합 분석 결과 (**포함 시 TODAY 모드, 생략 시 FUTURE 모드로 자동 분기**) |
 | `↳ riskLevel` | string | Y | 위험도 (`NORMAL`, `CAUTION`, `DANGER`) |
 | `↳ recoveryStatus` | string | Y | 회복 상태 (`GOOD`, `RECOVERY_NEEDED`, `RECOVERY_PRIORITY`) |

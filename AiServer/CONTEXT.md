@@ -35,11 +35,9 @@
 - **회복 상태 (Recovery State / RecoveryStatus)**: 피로도, 수면 시간, 걸음 수, 심박수를 종합 합산한 신체 회복 등급 (`GOOD`, `RECOVERY_NEEDED`, `RECOVERY_PRIORITY`).
 - **가용 시간 (Available Hours)**: 통근 시간을 제외하고 수면과 개인 활동에 쓸 수 있는 순수 잔여 시간.
 - **연속 근무 일수 (Consecutive Days)**: 휴무(OFF) 없이 연속으로 근무한 일수.
-- **개인화 보정 지표 (Personalization Metrics)**:
-  - **추가 수면 버퍼 (recommendedSleepBuffer)**: 과거 동일 근무 전환 패턴의 피로도 피드백을 기반으로 가산하는 추가 권장 수면 시간(분 단위).
-  - **카페인 차단 권장 시각 (adjustedCaffeineCutoff)**: 수면 방해를 막기 위해 카페인 섭취를 중단해야 하는 시각 ("HH:mm").
-  - **반복 취약 패턴 감지 (hasRepeatedPattern)**: 특정 전환에서 피로 누적이 반복되었는지 여부.
-  - **개인화 맞춤 피드백 (personalizationMessage)**: 과거 피드백 통계 요약 문구.
+- **개인화 보정 제약조건 (Personalization Constraints)**:
+  - **추가 수면 버퍼 (recommendedSleepBuffer)**: 과거 수면 부족(<6h) 또는 고피로(>=8) 이력을 기반으로 기본 수면에 최대 추가 가산을 고려할 수면 시간(분 단위, 가용 시간 한도 내 탄력 적용).
+  - **카페인 차단 권장 시각 (adjustedCaffeineCutoff)**: 과거 카페인 섭취 및 수면 부족 이력을 기반으로 마지막 섭취 시각보다 30분 앞당겨 산출된 카페인 섭취 중단 시각 ("HH:mm").
 
 ---
 
