@@ -16,7 +16,8 @@ public record AiTimelineRequest(
         Integer commuteMinutes,
         ShiftTimes shiftTimes,
         AnalysisResult analysisResult,
-        String userNotes
+        String userNotes,
+        PersonalizationRequest personalization
 ) {
     public record ShiftTimes(
             String dayStart,
@@ -34,6 +35,15 @@ public record AiTimelineRequest(
             String fatigueLevel,
             Double availableHours,
             Integer consecutiveDays
+    ) {
+    }
+
+    // AiServer PersonalizationDto와 같은 모양(recommendedSleepBuffer/adjustedCaffeineCutoff)의 요청 측 DTO.
+    // PersonalizationResponse(Personalization 패키지)를 여기서 직접 참조하지 않고, 호출하는 쪽
+    // (AiTimelineRequestBuilder)이 이미 꺼낸 두 값만 받는다.
+    public record PersonalizationRequest(
+            Integer recommendedSleepBuffer,
+            String adjustedCaffeineCutoff
     ) {
     }
 }
