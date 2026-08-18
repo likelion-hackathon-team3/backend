@@ -37,6 +37,9 @@ public record TimelineGenerateRequest(
         @Schema(description = "병원/사용자 맞춤 근무 시간대 설정 (선택적, 미입력 시 표준 시간 기준 적용)")
         ShiftTimesDto shiftTimes,
 
+        @Schema(description = "과거 피드백 기반 개인화 보정 지표 (선택적, 추가 수면 버퍼 및 카페인 차단 시각 등)")
+        PersonalizationDto personalization,
+
         @Schema(description = "실시간 통합 분석 결과 (당일 모드일 때만 포함, 미래 모드 시 null)")
         AnalysisResultDto analysisResult
 ) {
@@ -47,7 +50,7 @@ public record TimelineGenerateRequest(
             String transitionType,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, null, null, null, null, null, null, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, null, null, null, null, null, null, null, analysisResult);
     }
 
     public TimelineGenerateRequest(
@@ -58,7 +61,7 @@ public record TimelineGenerateRequest(
             ShiftTimesDto shiftTimes,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, null, null, null, null, null, shiftTimes, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, null, null, null, null, null, shiftTimes, null, analysisResult);
     }
 
     public TimelineGenerateRequest(
@@ -70,7 +73,7 @@ public record TimelineGenerateRequest(
             ShiftTimesDto shiftTimes,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, currentTime, null, null, null, null, shiftTimes, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, currentTime, null, null, null, null, shiftTimes, null, analysisResult);
     }
 
     public TimelineGenerateRequest(
@@ -83,6 +86,22 @@ public record TimelineGenerateRequest(
             ShiftTimesDto shiftTimes,
             AnalysisResultDto analysisResult
     ) {
-        this(targetDate, currentShift, nextShift, transitionType, currentTime, null, null, null, userNotes, shiftTimes, analysisResult);
+        this(targetDate, currentShift, nextShift, transitionType, currentTime, null, null, null, userNotes, shiftTimes, null, analysisResult);
+    }
+
+    public TimelineGenerateRequest(
+            LocalDate targetDate,
+            ShiftType currentShift,
+            ShiftType nextShift,
+            String transitionType,
+            String currentTime,
+            String currentWorkEnd,
+            String nextWorkStart,
+            Integer commuteMinutes,
+            String userNotes,
+            ShiftTimesDto shiftTimes,
+            AnalysisResultDto analysisResult
+    ) {
+        this(targetDate, currentShift, nextShift, transitionType, currentTime, currentWorkEnd, nextWorkStart, commuteMinutes, userNotes, shiftTimes, null, analysisResult);
     }
 }

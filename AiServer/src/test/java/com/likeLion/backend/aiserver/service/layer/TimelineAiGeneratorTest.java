@@ -38,7 +38,7 @@ class TimelineAiGeneratorTest {
 
     @BeforeEach
     void setUp() {
-        String dummyPrompt = "Test template {targetDate} {transitionType} {commuteMinutes} {nextWorkStart} {format}";
+        String dummyPrompt = "Test template {targetDate} {transitionType} {commuteMinutes} {nextWorkStart} {recommendedSleepBuffer} {adjustedCaffeineCutoff} {personalizationMessage} {format}";
         ByteArrayResource resource = new ByteArrayResource(dummyPrompt.getBytes(StandardCharsets.UTF_8));
         ReflectionTestUtils.setField(timelineAiGenerator, "futurePromptResource", resource);
         ReflectionTestUtils.setField(timelineAiGenerator, "todayPromptResource", resource);
@@ -98,5 +98,58 @@ class TimelineAiGeneratorTest {
         OpenAiChatOptions options = (OpenAiChatOptions) executedPrompt.getOptions();
         assertThat(options.getModel()).isEqualTo("gpt-4o-mini");
         assertThat(options.getTemperature()).isEqualTo(0.3);
+    }
+
+    @Test
+    @DisplayName("PersonalizationDto가 주어지면 프롬프트 렌더링에 수면 버퍼, 카페인 컷오프 시각, 피드백 문구가 정확히 전달된다")
+    void generateTodayTimeline_withPersonalization() {
+        // given
+        PersonalizationDto personalization = new PersonalizationDto(
+                45,
+                "14:30",
+                true,
+                "지난 동일 패턴 피로 누적 반영: 수면 45분 추가 권장"
+        );
+
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                LocalDate.of(2026, 8, 17),
+                ShiftType.DAY,
+                ShiftType.NIGHT,
+                "DAY_TO_NIGHT",
+                "16:00",
+                "2026-08-17T15:00",
+                "2026-08-18T23:00",
+                30,
+                "카페인 민감",
+                null,
+                personalization,
+                null
+        );
+
+        String mockAiJson = """
+                {
+                    "pageTitle": "맞춤 타임라인",
+                    "pageSubtitle": "피로 회복을 위해 수면 45분을 추가했습니다.",
+                    "timelineItems": [],
+                    "recommendations": ["14:30 이후 카페인 섭취를 중단하세요."]
+                }
+                """;
+
+        org.springframework.ai.chat.messages.AssistantMessage assistantMessage = new org.springframework.ai.chat.messages.AssistantMessage(mockAiJson);
+        Generation generation = new Generation(assistantMessage);
+        given(chatModel.call(any(Prompt.class))).willReturn(new ChatResponse(List.of(generation)));
+
+        // when
+        RawTimelineAiResponse response = timelineAiGenerator.generateTodayTimeline(request);
+
+        // then
+        assertThat(response).isNotNull();
+        ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
+        verify(chatModel).call(promptCaptor.capture());
+
+        String renderedPrompt = promptCaptor.getValue().getContents();
+        assertThat(renderedPrompt).contains("45");
+        assertThat(renderedPrompt).contains("14:30");
+        assertThat(renderedPrompt).contains("지난 동일 패턴 피로 누적 반영");
     }
 }

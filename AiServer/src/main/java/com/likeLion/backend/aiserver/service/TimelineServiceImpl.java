@@ -45,11 +45,12 @@ public class TimelineServiceImpl implements TimelineService {
                 request.commuteMinutes(),
                 request.userNotes(),
                 request.shiftTimes(),
+                request.personalization(),
                 request.analysisResult()
         );
 
-        log.info("Timeline generation requested for targetDate: {}, transition: {}, currentTime: {}, workEnd: {}, nextStart: {}, commuteMin: {}, hasAnalysis: {}",
-                targetDate, transitionType, request.currentTime(), request.currentWorkEnd(), request.nextWorkStart(), request.commuteMinutes(), normalizedRequest.analysisResult() != null);
+        log.info("Timeline generation requested for targetDate: {}, transition: {}, currentTime: {}, workEnd: {}, nextStart: {}, commuteMin: {}, hasPersonalization: {}, hasAnalysis: {}",
+                targetDate, transitionType, request.currentTime(), request.currentWorkEnd(), request.nextWorkStart(), request.commuteMinutes(), normalizedRequest.personalization() != null, normalizedRequest.analysisResult() != null);
 
         TimelineMode mode = (normalizedRequest.analysisResult() != null) ? TimelineMode.TODAY : TimelineMode.FUTURE;
 

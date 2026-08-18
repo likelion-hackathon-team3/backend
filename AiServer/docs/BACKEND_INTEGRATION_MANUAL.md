@@ -63,6 +63,11 @@
 | `commuteMinutes` | Number | N | **편도 통근 시간 (분 단위, 예: 30, 미입력 시 기본 30분 적용)** |
 | `userNotes` | String | N | 사용자 개인 특이사항/선호 메모 |
 | `shiftTimes` | Object | N | 병원별 실제 교대 시간표 (`dayStart`, `dayEnd`, `eveningStart`, `eveningEnd`, `nightStart`, `nightEnd`) |
+| `personalization` | Object | N | **과거 피드백 기반 개인화 보정 지표 (선택적)** |
+| `↳ recommendedSleepBuffer` | Number | N | 추가 권장 수면 시간 (분 단위, 예: 30) |
+| `↳ adjustedCaffeineCutoff` | String | N | 카페인 섭취 차단 권장 시각 ("HH:mm", 예: "14:30") |
+| `↳ hasRepeatedPattern` | Boolean | N | 취약/피로 반복 패턴 감지 여부 (예: true) |
+| `↳ personalizationMessage` | String | N | 개인화 안내 문구 (예: "지난 피로 누적 반영: 수면 30분 추가 권장") |
 | `analysisResult` | Object | N | **실시간 분석 결과 (있으면 TODAY 모드, 없으면 FUTURE 모드로 자동 분기)** |
 | `↳ riskLevel` | String | Y* | 위험도 (`NORMAL`, `CAUTION`, `DANGER`) |
 | `↳ recoveryStatus` | String | Y* | 회복 상태 (`GOOD`, `RECOVERY_NEEDED`, `RECOVERY_PRIORITY`) |

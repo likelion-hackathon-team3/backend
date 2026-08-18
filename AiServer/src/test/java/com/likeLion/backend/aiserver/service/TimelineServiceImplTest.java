@@ -224,4 +224,42 @@ class TimelineServiceImplTest {
         assertThat(captor.getValue().nextWorkStart()).isEqualTo("2026-08-18T23:00");
         assertThat(captor.getValue().commuteMinutes()).isEqualTo(45);
     }
+
+    @Test
+    @DisplayName("personalization이 주어지면 TimelineAiGenerator로 정상 전달된다")
+    void generateTimeline_withPersonalization() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 17);
+        PersonalizationDto personalization = new PersonalizationDto(30, "14:30", true, "피로 누적 주의");
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.NIGHT,
+                "DAY_TO_NIGHT",
+                "15:30",
+                "2026-08-17T15:00",
+                "2026-08-18T23:00",
+                30,
+                "메모",
+                null,
+                personalization,
+                null
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", List.of(), List.of()
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+
+        // when
+        timelineService.generateTimeline(request);
+
+        // then
+        ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        assertThat(captor.getValue().personalization()).isNotNull();
+        assertThat(captor.getValue().personalization().recommendedSleepBuffer()).isEqualTo(30);
+        assertThat(captor.getValue().personalization().adjustedCaffeineCutoff()).isEqualTo("14:30");
+        assertThat(captor.getValue().personalization().hasRepeatedPattern()).isTrue();
+    }
 }

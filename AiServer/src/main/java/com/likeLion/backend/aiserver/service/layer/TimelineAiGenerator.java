@@ -1,6 +1,7 @@
 package com.likeLion.backend.aiserver.service.layer;
 
 import com.likeLion.backend.aiserver.dto.timeline.AnalysisResultDto;
+import com.likeLion.backend.aiserver.dto.timeline.PersonalizationDto;
 import com.likeLion.backend.aiserver.dto.timeline.RawTimelineAiResponse;
 import com.likeLion.backend.aiserver.dto.timeline.ShiftTimesDto;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineGenerateRequest;
@@ -100,6 +101,19 @@ public class TimelineAiGenerator {
         map.put("nextWorkStart", (request.nextWorkStart() != null && !request.nextWorkStart().isBlank()) ? request.nextWorkStart() : "해당 없음");
         map.put("commuteMinutes", request.commuteMinutes() != null ? request.commuteMinutes() : 30);
         map.put("userNotes", (request.userNotes() != null && !request.userNotes().isBlank()) ? request.userNotes() : "없음");
+
+        PersonalizationDto personalization = request.personalization();
+        if (personalization != null) {
+            map.put("recommendedSleepBuffer", String.valueOf(personalization.sleepBufferOrDefault()));
+            map.put("adjustedCaffeineCutoff", personalization.caffeineCutoffOrDefault());
+            map.put("hasRepeatedPattern", String.valueOf(Boolean.TRUE.equals(personalization.hasRepeatedPattern())));
+            map.put("personalizationMessage", personalization.messageOrDefault());
+        } else {
+            map.put("recommendedSleepBuffer", "0");
+            map.put("adjustedCaffeineCutoff", "해당 없음");
+            map.put("hasRepeatedPattern", "false");
+            map.put("personalizationMessage", "없음");
+        }
 
         ShiftTimesDto shiftTimes = request.shiftTimes();
         if (shiftTimes != null) {
