@@ -62,7 +62,14 @@ public class AnalysisService {
         this.wearableService = wearableService;
     }
 
-    @Transactional(readOnly = true)
+    // noRollbackFor: 아래에서 던지는 IllegalStateException 2곳은 실제 오류가 아니라
+    // "Analysis 확보 실패"를 알리는 의도된 신호다(TimelineService가 catch해서 fallback으로 전환).
+    // 이 메서드가 TimelineService.getTimeline()의 트랜잭션에 참여(REQUIRED)한 상태에서
+    // 그냥 예외를 던지면 Spring이 그 공유 트랜잭션을 rollback-only로 표시해버리고,
+    // TimelineService가 예외를 잡아 정상 응답을 반환해도 커밋 시점에
+    // UnexpectedRollbackException이 발생한다. readOnly라 실제로 롤백할 쓰기 작업도 없으므로
+    // noRollbackFor로 이 케이스만 커밋 가능하게 유지한다.
+    @Transactional(readOnly = true, noRollbackFor = IllegalStateException.class)
     public AnalysisResponse analyze() {
         Environment environment = environmentRepository.findTopByOrderByIdAsc().orElse(null);
         if (environment == null) {
