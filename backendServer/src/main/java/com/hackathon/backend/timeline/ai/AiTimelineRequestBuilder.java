@@ -25,6 +25,10 @@ import java.time.format.DateTimeFormatter;
 // - FUTURE: analysisResponse=null을 전달한다.
 // isToday && analysisResponse != null일 때만 실제로 analysisResult를 채워서, 호출부 실수로
 // FUTURE에 AnalysisResponse가 잘못 전달되더라도 요청에는 포함되지 않도록 한 번 더 방어한다.
+//
+// recommendedSleepBuffer/adjustedCaffeineCutoff: PersonalizationResponse(personalization 패키지)를
+// 여기서 직접 참조하지 않는다(이 클래스는 순수 조립기로 유지). 호출하는 쪽(TimelineService)이
+// PersonalizationService를 호출해서 이미 꺼내둔 값 두 개만 그대로 받아 전달한다.
 public class AiTimelineRequestBuilder {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
@@ -35,7 +39,8 @@ public class AiTimelineRequestBuilder {
     public AiTimelineRequest build(LocalDate date, ShiftType currentShift, ShiftType nextShift,
                                    LocalDateTime nextWorkActualStart, Environment environment,
                                    boolean isToday, LocalDateTime now,
-                                   AnalysisResponse analysisResponse) {
+                                   AnalysisResponse analysisResponse,
+                                   int recommendedSleepBuffer, String adjustedCaffeineCutoff) {
         String currentWorkEnd = currentShift == ShiftType.OFF
                 ? null
                 : shiftDateTimeResolver.actualEnd(date, currentShift, environment).format(DATE_TIME_FORMAT);
@@ -54,7 +59,8 @@ public class AiTimelineRequestBuilder {
                 environment.getCommuteMinutes(),
                 buildShiftTimes(environment),
                 isToday && analysisResponse != null ? toAnalysisResult(analysisResponse) : null,
-                null
+                null,
+                new AiTimelineRequest.PersonalizationRequest(recommendedSleepBuffer, adjustedCaffeineCutoff)
         );
     }
 

@@ -275,4 +275,85 @@ class PersonalizationServiceTest {
         assertThat(res.getRecommendedRoutineNotice())
                 .isEqualTo("과거 동일 근무 전환 피드백에서 추가 보정이 필요한 반복 패턴은 확인되지 않았습니다.");
     }
+
+    // ===== getPersonalization(shiftType, targetDate) — Timeline 전용 날짜 경계 검증 =====
+    // targetDate보다 "엄격히 이전(<)"인 Feedback만 사용해야 한다(자기 자신/미래 Feedback 인과관계 문제 방지).
+
+    // 19. targetDate 이전 Feedback은 포함된다
+    @Test
+    void targetDate_이전_Feedback은_포함된다() {
+        feedback("2026-08-05", TRANSITION, 5.5, false, null, 5, 4); // targetDate(08-10)보다 이전
+
+        PersonalizationResponse res = personalizationService.getPersonalization(TRANSITION, LocalDate.parse("2026-08-10"));
+
+        assertThat(res.getRecommendedSleepBuffer()).isEqualTo(30);
+        assertThat(res.getRecommendedRoutineNotice())
+                .isEqualTo("지난 동일 근무 전환에서 수면 부족이 확인되어 추가 수면 시간을 반영합니다.");
+    }
+
+    // 20. targetDate와 같은 날짜 Feedback은 제외된다
+    @Test
+    void targetDate와_같은_날짜_Feedback은_제외된다() {
+        LocalDate targetDate = LocalDate.parse("2026-08-10");
+        feedback("2026-08-10", TRANSITION, 5.5, false, null, 5, 4); // targetDate 당일
+
+        PersonalizationResponse res = personalizationService.getPersonalization(TRANSITION, targetDate);
+
+        assertThat(res.getRecommendedSleepBuffer()).isEqualTo(0);
+        assertThat(res.getRecommendedRoutineNotice()).isEqualTo("축적된 피드백이 없어 기본 추천 기준을 적용합니다.");
+    }
+
+    // 21. targetDate 이후 Feedback은 제외된다
+    @Test
+    void targetDate_이후_Feedback은_제외된다() {
+        feedback("2026-08-15", TRANSITION, 5.5, false, null, 5, 4); // targetDate(08-10)보다 이후
+
+        PersonalizationResponse res = personalizationService.getPersonalization(TRANSITION, LocalDate.parse("2026-08-10"));
+
+        assertThat(res.getRecommendedSleepBuffer()).isEqualTo(0);
+        assertThat(res.getRecommendedRoutineNotice()).isEqualTo("축적된 피드백이 없어 기본 추천 기준을 적용합니다.");
+    }
+
+    // 22. 이전/같은날/이후가 섞여 있어도 이전 데이터만 계산에 사용된다.
+    // 같은날/이후 기록에만 있는 문제(수면부족/고피로)가 결과에 새어 들어오면 이 테스트가 잡아낸다.
+    @Test
+    void 이전_같은날_이후가_섞여도_이전_데이터만_계산에_사용된다() {
+        LocalDate targetDate = LocalDate.parse("2026-08-10");
+        feedback("2026-08-05", TRANSITION, 7.0, false, null, 4, 1); // 이전: 낮은 루틴 도움만 있음
+        feedback("2026-08-10", TRANSITION, 5.0, false, null, 4, 4); // 같은날: 수면부족(제외돼야 함)
+        feedback("2026-08-15", TRANSITION, 7.0, false, null, 9, 4); // 이후: 고피로(제외돼야 함)
+
+        PersonalizationResponse res = personalizationService.getPersonalization(TRANSITION, targetDate);
+
+        // 같은날/이후의 수면부족·고피로가 섞였다면 sleepBuffer=30이 됐을 것이다.
+        assertThat(res.getRecommendedSleepBuffer()).isEqualTo(0);
+        assertThat(res.getAdjustedCaffeineCutoff()).isNull();
+        assertThat(res.isRepeatedPatternFound()).isFalse();
+        assertThat(res.getRecommendedRoutineNotice())
+                .isEqualTo("지난 동일 근무 전환에서 기존 회복 루틴의 도움이 낮게 평가되어 회복 루틴 조정을 권장합니다.");
+    }
+
+    // 23. 기존 1인자 getPersonalization(shiftType)은 날짜 제한 없이 전체 동일 transitionType 기준으로
+    //     그대로 동작한다(22번과 동일한 데이터로, 날짜 제한이 없으면 같은날/이후 수면부족까지 잡혀야 함).
+    @Test
+    void 기존_1인자_조회는_날짜_제한_없이_전체를_그대로_사용한다() {
+        feedback("2026-08-05", TRANSITION, 7.0, false, null, 4, 1);
+        feedback("2026-08-10", TRANSITION, 5.0, false, null, 4, 4); // 수면부족
+        feedback("2026-08-15", TRANSITION, 7.0, false, null, 9, 4); // 고피로
+
+        PersonalizationResponse res = personalizationService.getPersonalization(TRANSITION);
+
+        assertThat(res.getRecommendedSleepBuffer()).isEqualTo(30);
+    }
+
+    // 24. targetDate가 null이면 예외 없이 방어적으로 기본 응답을 반환한다.
+    @Test
+    void targetDate가_null이면_방어적으로_기본응답() {
+        feedback("2026-08-05", TRANSITION, 5.5, false, null, 5, 4);
+
+        PersonalizationResponse res = personalizationService.getPersonalization(TRANSITION, null);
+
+        assertThat(res.getRecommendedSleepBuffer()).isEqualTo(0);
+        assertThat(res.getRecommendedRoutineNotice()).isEqualTo("축적된 피드백이 없어 기본 추천 기준을 적용합니다.");
+    }
 }

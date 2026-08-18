@@ -41,6 +41,11 @@ class TimelineItemPlacer {
     private static final long NIGHT_TO_NIGHT_SLEEP_CAP_MINUTES = 480; // 8시간
     private static final long NIGHT_TO_OFF_RECOVERY_SLEEP_CAP_MINUTES = 480; // 8시간
 
+    // Personalization(recommendedSleepBuffer) 반영 상한. 외부(Personalization 규칙)가 0 또는 30만
+    // 준다는 전제와 무관하게, 이 클래스가 스스로를 방어한다 — 과도한 값이 들어와도 SLEEP/RECOVERY_SLEEP
+    // 상한을 이 이상 늘리지 않는다.
+    private static final int MAX_SLEEP_BUFFER_MINUTES = 30;
+
     private static final LocalTime BEDTIME_ANCHOR = LocalTime.of(22, 30);
     private static final LocalTime EVENING_MEAL_ANCHOR = LocalTime.of(18, 0);
     private static final long BEDTIME_MIN_ROOM_AFTER_CANDIDATE_MINUTES =
@@ -49,17 +54,19 @@ class TimelineItemPlacer {
     private enum NightEntryStyle { FULL_OFF_DAY, POST_DAY_WORK, POST_EVENING_WORK }
 
     List<TimelineItemDraft> place(ShiftType currentShift, ShiftType nextShift,
-                                   TimelineRange range, TimelineBudgetLevel budget) {
+                                   TimelineRange range, TimelineBudgetLevel budget, int sleepBuffer) {
         if (!range.hasUsableWindow()) {
             List<TimelineItemDraft> items = new ArrayList<>();
             addWorkMarker(items, range);
             return items;
         }
 
+        int effectiveSleepBuffer = Math.max(0, Math.min(sleepBuffer, MAX_SLEEP_BUFFER_MINUTES));
+
         return switch (range.group()) {
-            case WORK_TO_WORK -> buildWorkToWork(currentShift, nextShift, range, budget);
-            case WORK_TO_OFF -> buildWorkToOff(currentShift, range, budget);
-            case OFF_TO_WORK -> buildOffToWork(nextShift, range, budget);
+            case WORK_TO_WORK -> buildWorkToWork(currentShift, nextShift, range, budget, effectiveSleepBuffer);
+            case WORK_TO_OFF -> buildWorkToOff(currentShift, range, budget, effectiveSleepBuffer);
+            case OFF_TO_WORK -> buildOffToWork(nextShift, range, budget, effectiveSleepBuffer);
             case OFF_TO_OFF -> buildOffToOff(range, budget);
         };
     }
@@ -67,25 +74,25 @@ class TimelineItemPlacer {
     // ================= WORK_TO_WORK 분기 =================
 
     private List<TimelineItemDraft> buildWorkToWork(ShiftType current, ShiftType next,
-                                                     TimelineRange range, TimelineBudgetLevel budget) {
+                                                     TimelineRange range, TimelineBudgetLevel budget, int sleepBuffer) {
         if (current == ShiftType.NIGHT && next == ShiftType.NIGHT) {
-            return buildNightToNight(range, budget);
+            return buildNightToNight(range, budget, sleepBuffer);
         }
         if (current == ShiftType.NIGHT) {
-            return buildNightToNonNight(range, budget);
+            return buildNightToNonNight(range, budget, sleepBuffer);
         }
         if (next == ShiftType.NIGHT) {
             NightEntryStyle style = current == ShiftType.DAY
                     ? NightEntryStyle.POST_DAY_WORK
                     : NightEntryStyle.POST_EVENING_WORK;
-            return buildIntoNight(range, budget, style);
+            return buildIntoNight(range, budget, style, sleepBuffer);
         }
-        return buildNonNightToNonNight(range, budget);
+        return buildNonNightToNonNight(range, budget, sleepBuffer);
     }
 
     // DAY/EVENING -> DAY/EVENING (NIGHT 미개입). 퇴근 직후 곧장 재우지 않고 22:30 전후로 당긴다.
     // SLEEP 직후 WAKE_UP을 정방향으로 이어붙이고, 근무 직전 MEAL/PREPARATION만 역방향으로 배치한다.
-    private List<TimelineItemDraft> buildNonNightToNonNight(TimelineRange range, TimelineBudgetLevel budget) {
+    private List<TimelineItemDraft> buildNonNightToNonNight(TimelineRange range, TimelineBudgetLevel budget, int sleepBuffer) {
         List<TimelineItemDraft> forward = new ArrayList<>();
         Deque<TimelineItemDraft> backward = new ArrayDeque<>();
 
@@ -103,13 +110,13 @@ class TimelineItemPlacer {
             fwd = advance(forward, fwd, ActivityKind.DAYTIME_EXERCISE, EXERCISE_MINUTES);
         }
 
-        placeSleepThenWakeUp(forward, fwd, bwd, ActivityKind.NORMAL_SLEEP);
+        placeSleepThenWakeUp(forward, fwd, bwd, ActivityKind.NORMAL_SLEEP, sleepBuffer);
 
         return assemble(forward, backward, range);
     }
 
     // NIGHT -> DAY/EVENING (usable window가 있는 경우만 호출됨). 선택 활동 없이 SLEEP을 최대화한다.
-    private List<TimelineItemDraft> buildNightToNonNight(TimelineRange range, TimelineBudgetLevel budget) {
+    private List<TimelineItemDraft> buildNightToNonNight(TimelineRange range, TimelineBudgetLevel budget, int sleepBuffer) {
         List<TimelineItemDraft> forward = new ArrayList<>();
         Deque<TimelineItemDraft> backward = new ArrayDeque<>();
 
@@ -122,14 +129,14 @@ class TimelineItemPlacer {
         bwd = retreat(backward, bwd, ActivityKind.PRE_WORK_MEAL, LIGHT_MEAL_MINUTES);
         bwd = retreat(backward, bwd, ActivityKind.POST_SLEEP_WAKE_UP, WAKE_UP_MINUTES);
 
-        long sleepMinutes = clampSleep(minutesBetween(fwd, bwd));
+        long sleepMinutes = clampSleep(minutesBetween(fwd, bwd), sleepBuffer);
         forward.add(new TimelineItemDraft(fwd, fwd.plusMinutes(sleepMinutes), ActivityKind.RECOVERY_SLEEP));
 
         return assemble(forward, backward, range);
     }
 
     // NIGHT -> NIGHT. 늦은 기상 + 기상 직후 MEAL + 다음 NIGHT 전 별도 MEAL(3끼 구조).
-    private List<TimelineItemDraft> buildNightToNight(TimelineRange range, TimelineBudgetLevel budget) {
+    private List<TimelineItemDraft> buildNightToNight(TimelineRange range, TimelineBudgetLevel budget, int sleepBuffer) {
         List<TimelineItemDraft> forward = new ArrayList<>();
         Deque<TimelineItemDraft> backward = new ArrayDeque<>();
 
@@ -142,7 +149,7 @@ class TimelineItemPlacer {
         bwd = retreat(backward, bwd, ActivityKind.PRE_NIGHT_MEAL, MEAL_MINUTES);
 
         long tailAfterSleep = WAKE_UP_MINUTES + MEAL_MINUTES;
-        long sleepMinutes = Math.max(0, Math.min(NIGHT_TO_NIGHT_SLEEP_CAP_MINUTES,
+        long sleepMinutes = Math.max(0, Math.min(NIGHT_TO_NIGHT_SLEEP_CAP_MINUTES + sleepBuffer,
                 minutesBetween(fwd, bwd) - tailAfterSleep));
 
         fwd = advance(forward, fwd, ActivityKind.RECOVERY_SLEEP, sleepMinutes);
@@ -156,7 +163,8 @@ class TimelineItemPlacer {
     }
 
     // DAY/EVENING/OFF -> NIGHT 공통: 정상 SLEEP(또는 OFF 기본 생활+SLEEP) + NIGHT 당일 사전 NAP.
-    private List<TimelineItemDraft> buildIntoNight(TimelineRange range, TimelineBudgetLevel budget, NightEntryStyle style) {
+    private List<TimelineItemDraft> buildIntoNight(TimelineRange range, TimelineBudgetLevel budget,
+                                                    NightEntryStyle style, int sleepBuffer) {
         List<TimelineItemDraft> forward = new ArrayList<>();
         Deque<TimelineItemDraft> backward = new ArrayDeque<>();
 
@@ -190,7 +198,7 @@ class TimelineItemPlacer {
         long sleepMinutes;
         if (remaining >= MIN_SLEEP_MINUTES + tailAfterSleep + napWithWakeUp) {
             napMinutes = NAP_MINUTES;
-            sleepMinutes = Math.min(MAX_SLEEP_MINUTES, remaining - tailAfterSleep - napWithWakeUp);
+            sleepMinutes = Math.min(MAX_SLEEP_MINUTES + sleepBuffer, remaining - tailAfterSleep - napWithWakeUp);
         } else if (remaining >= MIN_SLEEP_MINUTES + tailAfterSleep + WAKE_UP_MINUTES + 30) {
             napMinutes = remaining - tailAfterSleep - MIN_SLEEP_MINUTES - WAKE_UP_MINUTES;
             sleepMinutes = MIN_SLEEP_MINUTES;
@@ -227,14 +235,15 @@ class TimelineItemPlacer {
 
     // ================= WORK_TO_OFF =================
 
-    private List<TimelineItemDraft> buildWorkToOff(ShiftType currentShift, TimelineRange range, TimelineBudgetLevel budget) {
+    private List<TimelineItemDraft> buildWorkToOff(ShiftType currentShift, TimelineRange range,
+                                                    TimelineBudgetLevel budget, int sleepBuffer) {
         List<TimelineItemDraft> items = new ArrayList<>();
         LocalDateTime cursor = range.timelineStart();
 
         if (currentShift == ShiftType.NIGHT) {
             cursor = advance(items, cursor, ActivityKind.SLEEP_PREP, SLEEP_PREP_MINUTES);
             long remaining = minutesBetween(cursor, range.timelineEnd());
-            long sleepMinutes = Math.min(remaining, NIGHT_TO_OFF_RECOVERY_SLEEP_CAP_MINUTES);
+            long sleepMinutes = Math.min(remaining, NIGHT_TO_OFF_RECOVERY_SLEEP_CAP_MINUTES + sleepBuffer);
 
             cursor = advance(items, cursor, ActivityKind.RECOVERY_SLEEP, sleepMinutes);
             if (minutesBetween(cursor, range.timelineEnd()) >= WAKE_UP_MINUTES) {
@@ -254,7 +263,7 @@ class TimelineItemPlacer {
                 cursor = advance(items, cursor, ActivityKind.POST_WORK_REST, REST_MINUTES);
             }
             LocalDateTime prepStart = anchorOrImmediate(cursor, range.timelineEnd(), BEDTIME_ANCHOR, BEDTIME_MIN_ROOM_AFTER_CANDIDATE_MINUTES);
-            long sleepMinutes = clampSleep(minutesBetween(prepStart, range.timelineEnd()) - SLEEP_PREP_MINUTES);
+            long sleepMinutes = clampSleep(minutesBetween(prepStart, range.timelineEnd()) - SLEEP_PREP_MINUTES, sleepBuffer);
             LocalDateTime sleepStart = advance(items, prepStart, ActivityKind.SLEEP_PREP, SLEEP_PREP_MINUTES);
             items.add(new TimelineItemDraft(sleepStart, sleepStart.plusMinutes(sleepMinutes), ActivityKind.NORMAL_SLEEP));
         }
@@ -263,14 +272,15 @@ class TimelineItemPlacer {
 
     // ================= OFF_TO_WORK =================
 
-    private List<TimelineItemDraft> buildOffToWork(ShiftType nextShift, TimelineRange range, TimelineBudgetLevel budget) {
+    private List<TimelineItemDraft> buildOffToWork(ShiftType nextShift, TimelineRange range,
+                                                    TimelineBudgetLevel budget, int sleepBuffer) {
         if (nextShift == ShiftType.NIGHT) {
-            return buildIntoNight(range, budget, NightEntryStyle.FULL_OFF_DAY);
+            return buildIntoNight(range, budget, NightEntryStyle.FULL_OFF_DAY, sleepBuffer);
         }
-        return buildOffToWorkNonNight(range, budget);
+        return buildOffToWorkNonNight(range, budget, sleepBuffer);
     }
 
-    private List<TimelineItemDraft> buildOffToWorkNonNight(TimelineRange range, TimelineBudgetLevel budget) {
+    private List<TimelineItemDraft> buildOffToWorkNonNight(TimelineRange range, TimelineBudgetLevel budget, int sleepBuffer) {
         List<TimelineItemDraft> forward = new ArrayList<>();
         Deque<TimelineItemDraft> backward = new ArrayDeque<>();
 
@@ -281,7 +291,7 @@ class TimelineItemPlacer {
 
         LocalDateTime fwd = placeOffDayTemplate(forward, range.timelineStart(), bwd, budget);
 
-        placeSleepThenWakeUp(forward, fwd, bwd, ActivityKind.NORMAL_SLEEP);
+        placeSleepThenWakeUp(forward, fwd, bwd, ActivityKind.NORMAL_SLEEP, sleepBuffer);
 
         return assemble(forward, backward, range);
     }
@@ -356,9 +366,9 @@ class TimelineItemPlacer {
     // (SLEEP.end == WAKE_UP.start) 몇 시간씩 떨어지는 일이 없게 한다.
     // WAKE_UP 이후 bwd(근무 직전 블록 시작)까지 남는 시간은 비워둔다(필러 없음, 빈 시간 허용).
     private void placeSleepThenWakeUp(List<TimelineItemDraft> forward, LocalDateTime fwd, LocalDateTime bwd,
-                                      ActivityKind sleepKind) {
+                                      ActivityKind sleepKind, int sleepBuffer) {
         LocalDateTime prepStart = anchorOrImmediate(fwd, bwd, BEDTIME_ANCHOR, BEDTIME_MIN_ROOM_AFTER_CANDIDATE_MINUTES);
-        long sleepMinutes = clampSleep(minutesBetween(prepStart, bwd) - SLEEP_PREP_MINUTES - WAKE_UP_MINUTES);
+        long sleepMinutes = clampSleep(minutesBetween(prepStart, bwd) - SLEEP_PREP_MINUTES - WAKE_UP_MINUTES, sleepBuffer);
         LocalDateTime sleepStart = advance(forward, prepStart, ActivityKind.SLEEP_PREP, SLEEP_PREP_MINUTES);
         LocalDateTime sleepEnd = advance(forward, sleepStart, sleepKind, sleepMinutes);
         advance(forward, sleepEnd, ActivityKind.POST_SLEEP_WAKE_UP, WAKE_UP_MINUTES);
@@ -402,7 +412,10 @@ class TimelineItemPlacer {
         return minutesBetween(fwd, bwd) - SLEEP_PREP_MINUTES - MIN_SLEEP_MINUTES;
     }
 
-    private long clampSleep(long raw) {
-        return Math.max(0, Math.min(raw, MAX_SLEEP_MINUTES));
+    // raw(=실제 남은 여유시간)가 항상 진짜 상한이다. sleepBuffer는 MAX_SLEEP_MINUTES 상한 자체를
+    // 최대 그만큼 늘릴 뿐이라, raw가 이미 기존 상한보다 작았던 경우(=시간 부족이 원래 병목)라면
+    // 이 결과는 buffer 유무와 무관하게 동일하다(경계 침범 불가능).
+    private long clampSleep(long raw, int sleepBuffer) {
+        return Math.max(0, Math.min(raw, MAX_SLEEP_MINUTES + sleepBuffer));
     }
 }

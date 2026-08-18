@@ -127,6 +127,22 @@ class TimelineDescriptionGenerator {
         return "회복을 최우선으로 한 기본 맞춤 루틴입니다.";
     }
 
+    // Personalization의 adjustedCaffeineCutoff만 반영한 버전.
+    // recommendedSleepBuffer는 여기서 다루지 않는다 — TimelineItemPlacer가 실제 SLEEP/RECOVERY_SLEEP
+    // 길이를 늘리면 highlight()가 그 실제 길이를 그대로 반영하므로, 별도 문구를 덧붙이지 않아도 된다.
+    // 기존 규칙 기반 recommendations() 결과는 전혀 바꾸지 않고, cutoff가 있을 때만 문장 하나를 추가한다.
+    List<String> recommendations(ShiftType currentShift, ShiftType nextShift,
+                                 TimelineRange range, TimelineBudgetLevel budget, String adjustedCaffeineCutoff) {
+        List<String> base = recommendations(currentShift, nextShift, range, budget);
+        if (adjustedCaffeineCutoff == null || adjustedCaffeineCutoff.isBlank()) {
+            return base;
+        }
+
+        List<String> withCaffeineCutoff = new ArrayList<>(base);
+        withCaffeineCutoff.add(adjustedCaffeineCutoff + " 이후에는 카페인 섭취를 중단해주세요.");
+        return withCaffeineCutoff;
+    }
+
     // 우선순위: 회복시간 없음 -> (TIGHT+다음 NIGHT) -> 다음 NIGHT(MODERATE/AMPLE) -> TIGHT
     //          -> NIGHT_TO_OFF -> OFF_TO_OFF -> 기본.
     // TIGHT+다음 NIGHT를 별도로 먼저 처리하는 이유: TimelineItemPlacer는 가용시간이 부족하면

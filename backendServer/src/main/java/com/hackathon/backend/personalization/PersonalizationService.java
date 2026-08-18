@@ -6,6 +6,7 @@ import com.hackathon.backend.personalization.dto.PersonalizationResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +39,8 @@ public class PersonalizationService {
         this.feedbackRepository = feedbackRepository;
     }
 
+    // GET /api/personalization 전용: 날짜 제한 없이 동일 transitionType 전체 과거 Feedback을 본다.
+    // 기존 API 계약/동작을 그대로 유지한다(이번 변경으로 시그니처/결과 모두 영향 없음).
     @Transactional(readOnly = true)
     public PersonalizationResponse getPersonalization(String shiftType) {
         if (shiftType == null || shiftType.isBlank()) {
@@ -47,10 +50,28 @@ public class PersonalizationService {
         // 최신 날짜부터 내림차순 — 카페인 cutoff 후보를 찾을 때 "가장 최근 Feedback"을
         // 별도 정렬 없이 그대로 첫 번째 매치로 얻기 위함.
         List<Feedback> pastFeedback = feedbackRepository.findByTransitionTypeOrderByFeedbackDateDesc(shiftType);
-        if (pastFeedback.isEmpty()) {
+        return pastFeedback.isEmpty() ? PersonalizationResponse.noAccumulatedFeedback() : calculate(pastFeedback);
+    }
+
+    // Timeline 전용: targetDate보다 엄격히 이전(<)의 Feedback만 본다 — targetDate 당일이나 미래에
+    // 작성될 Feedback이 자기 자신의 타임라인 개인화에 섞이는 걸 막기 위함(데이터 인과관계 문제).
+    // targetDate가 null이면(방어적으로) 날짜 제한 없이는 절대 조회하지 않고 기본 응답으로 처리한다.
+    @Transactional(readOnly = true)
+    public PersonalizationResponse getPersonalization(String shiftType, LocalDate targetDate) {
+        if (shiftType == null || shiftType.isBlank() || targetDate == null) {
             return PersonalizationResponse.noAccumulatedFeedback();
         }
 
+        List<Feedback> pastFeedback = feedbackRepository
+                .findByTransitionTypeAndFeedbackDateBeforeOrderByFeedbackDateDesc(shiftType, targetDate);
+        return pastFeedback.isEmpty() ? PersonalizationResponse.noAccumulatedFeedback() : calculate(pastFeedback);
+    }
+
+    // 이미 조회된 과거 Feedback 리스트(최신순)로 개인화 보정값을 계산한다.
+    // getPersonalization(shiftType)/getPersonalization(shiftType, targetDate) 둘 다 이 로직을 공유해서,
+    // 날짜 필터링 여부와 무관하게 계산 규칙(recommendedSleepBuffer/adjustedCaffeineCutoff/
+    // repeatedPatternFound/recommendedRoutineNotice)은 한 곳에서만 정의된다.
+    private PersonalizationResponse calculate(List<Feedback> pastFeedback) {
         long sleepShortageCount = pastFeedback.stream().filter(this::isSleepShortage).count();
         long highFatigueCount = pastFeedback.stream().filter(this::isHighFatigue).count();
         long caffeineAdjustmentCount = pastFeedback.stream().filter(this::isCaffeineAdjustmentCandidate).count();

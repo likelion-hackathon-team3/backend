@@ -56,7 +56,7 @@ class AiTimelineClientTest {
                 "2026-08-17", "09:00", "DAY", "NIGHT", "DAY_TO_NIGHT",
                 "2026-08-17T15:00", "2026-08-18T23:00", 30,
                 new AiTimelineRequest.ShiftTimes("07:00", "15:00", "15:00", "23:00", "23:00", "07:00"),
-                null, null
+                null, null, null
         );
     }
 

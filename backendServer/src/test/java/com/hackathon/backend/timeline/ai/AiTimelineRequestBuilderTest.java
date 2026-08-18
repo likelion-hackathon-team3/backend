@@ -43,7 +43,7 @@ class AiTimelineRequestBuilderTest {
                 CurrentConditionResponse.of(FatigueLevel.LOW, 7.0, RecoveryStatus.GOOD));
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.NIGHT,
-                nextWorkActualStart, env, true, now, analysisResponse);
+                nextWorkActualStart, env, true, now, analysisResponse, 0, null);
 
         assertThat(request.targetDate()).isEqualTo("2026-08-17");
         assertThat(request.currentTime()).isEqualTo("09:05");
@@ -75,7 +75,7 @@ class AiTimelineRequestBuilderTest {
 
         // isToday=false인데 analysisResponse가 실수로 전달된 경우까지 방어하는지 확인한다.
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.DAY,
-                nextWorkActualStart, env, false, now, analysisResponse);
+                nextWorkActualStart, env, false, now, analysisResponse, 0, null);
 
         assertThat(request.currentTime()).isNull();
         assertThat(request.analysisResult()).isNull();
@@ -89,7 +89,7 @@ class AiTimelineRequestBuilderTest {
         LocalDateTime now = LocalDateTime.of(2026, 8, 17, 10, 0);
 
         AiTimelineRequest request = builder.build(date, ShiftType.OFF, ShiftType.DAY,
-                nextWorkActualStart, env, false, now, null);
+                nextWorkActualStart, env, false, now, null, 0, null);
 
         assertThat(request.currentWorkEnd()).isNull();
         assertThat(request.nextWorkStart()).isEqualTo("2026-08-18T07:00");
@@ -102,7 +102,7 @@ class AiTimelineRequestBuilderTest {
         LocalDateTime now = LocalDateTime.of(2026, 8, 17, 10, 0);
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.OFF,
-                null, env, false, now, null);
+                null, env, false, now, null, 0, null);
 
         assertThat(request.nextWorkStart()).isNull();
         assertThat(request.currentWorkEnd()).isEqualTo("2026-08-17T15:00");
@@ -122,7 +122,7 @@ class AiTimelineRequestBuilderTest {
         LocalDateTime now = LocalDateTime.of(2026, 8, 17, 10, 0);
 
         AiTimelineRequest request = builder.build(date, ShiftType.NIGHT, ShiftType.EVENING,
-                nextWorkActualStart, env, false, now, null);
+                nextWorkActualStart, env, false, now, null, 0, null);
 
         assertThat(request.currentWorkEnd()).isEqualTo("2026-08-18T09:30");
         assertThat(request.transitionType()).isEqualTo("NIGHT_TO_EVENING");
@@ -134,7 +134,7 @@ class AiTimelineRequestBuilderTest {
         LocalDateTime now = LocalDateTime.of(2026, 8, 17, 0, 15, 45);
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.NIGHT,
-                LocalDateTime.of(2026, 8, 18, 23, 0), env, true, now, null);
+                LocalDateTime.of(2026, 8, 18, 23, 0), env, true, now, null, 0, null);
 
         assertThat(request.currentTime()).isEqualTo("00:15");
     }
@@ -148,7 +148,7 @@ class AiTimelineRequestBuilderTest {
                 CurrentConditionResponse.of(level, 7.0, RecoveryStatus.GOOD));
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.DAY,
-                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, analysisResponse);
+                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, analysisResponse, 0, null);
 
         assertThat(request.analysisResult().fatigueLevel()).isEqualTo(level.name());
     }
@@ -162,7 +162,7 @@ class AiTimelineRequestBuilderTest {
                 CurrentConditionResponse.of(FatigueLevel.LOW, 7.0, status));
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.DAY,
-                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, analysisResponse);
+                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, analysisResponse, 0, null);
 
         assertThat(request.analysisResult().recoveryStatus()).isEqualTo(status.name());
     }
@@ -175,7 +175,7 @@ class AiTimelineRequestBuilderTest {
                 CurrentConditionResponse.of(FatigueLevel.HIGH, 4.0, RecoveryStatus.RECOVERY_PRIORITY));
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.DAY,
-                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, analysisResponse);
+                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, analysisResponse, 0, null);
 
         AiTimelineRequest.AnalysisResult result = request.analysisResult();
         assertThat(result.riskLevel()).isEqualTo("DANGER");
@@ -189,8 +189,41 @@ class AiTimelineRequestBuilderTest {
         LocalDateTime now = LocalDateTime.of(2026, 8, 17, 10, 0);
 
         AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.DAY,
-                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, null);
+                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, null, 0, null);
 
         assertThat(request.analysisResult()).isNull();
+    }
+
+    // recommendedSleepBuffer/adjustedCaffeineCutoff는 PersonalizationResponse가 아니라
+    // 이미 꺼내진 원시값 두 개로만 전달받아 그대로 nested record에 채워 넣는지 확인한다.
+    @Test
+    void personalization_두_값이_AiTimelineRequest_personalization에_그대로_채워진다() {
+        Environment env = standardEnv();
+        LocalDateTime now = LocalDateTime.of(2026, 8, 17, 10, 0);
+
+        AiTimelineRequest request = builder.build(date, ShiftType.NIGHT, ShiftType.OFF,
+                null, env, false, now, null, 30, "14:30");
+
+        AiTimelineRequest.PersonalizationRequest personalization = request.personalization();
+        assertThat(personalization).isNotNull();
+        assertThat(personalization.recommendedSleepBuffer()).isEqualTo(30);
+        assertThat(personalization.adjustedCaffeineCutoff()).isEqualTo("14:30");
+    }
+
+    // 과거 Feedback이 없어 보정값이 기본값(0분/null)이어도 personalization 객체 자체는 항상 채워진다
+    // (AiServer PersonalizationDto.sleepBufferOrDefault/caffeineCutoffOrDefault가 null이 아닌
+    //  이 record 자체의 null 여부로 존재를 판단하지 않고 필드 값으로 기본 처리하기 때문).
+    @Test
+    void 보정값이_기본값이어도_personalization_객체는_null이_아니다() {
+        Environment env = standardEnv();
+        LocalDateTime now = LocalDateTime.of(2026, 8, 17, 10, 0);
+
+        AiTimelineRequest request = builder.build(date, ShiftType.DAY, ShiftType.DAY,
+                LocalDateTime.of(2026, 8, 18, 7, 0), env, true, now, null, 0, null);
+
+        AiTimelineRequest.PersonalizationRequest personalization = request.personalization();
+        assertThat(personalization).isNotNull();
+        assertThat(personalization.recommendedSleepBuffer()).isEqualTo(0);
+        assertThat(personalization.adjustedCaffeineCutoff()).isNull();
     }
 }

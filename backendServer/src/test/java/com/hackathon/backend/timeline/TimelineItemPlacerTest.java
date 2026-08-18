@@ -39,9 +39,13 @@ class TimelineItemPlacerTest {
     }
 
     private List<TimelineItemDraft> place(ShiftType current, ShiftType next) {
+        return place(current, next, 0);
+    }
+
+    private List<TimelineItemDraft> place(ShiftType current, ShiftType next, int sleepBuffer) {
         TimelineRange range = rangeCalculator.calculate(date, current, next, standardEnv());
         TimelineBudgetLevel budget = budgetClassifier.classify(range.timelineStart(), range.timelineEnd());
-        return placer.place(current, next, range, budget);
+        return placer.place(current, next, range, budget, sleepBuffer);
     }
 
     private static Stream<Arguments> all16Transitions() {
@@ -430,5 +434,108 @@ class TimelineItemPlacerTest {
         assertThat(items).extracting(TimelineItemDraft::kind).contains(
                 ActivityKind.NORMAL_SLEEP, ActivityKind.PRE_WORK_MEAL, ActivityKind.PRE_WORK_PREPARATION
         );
+    }
+
+    // ================= Personalization sleepBuffer 반영 검증 =================
+
+    @Test
+    void buffer_30_충분한_여유가_있으면_DAY_TO_EVENING_수면이_30분_늘어난다() {
+        List<TimelineItemDraft> baseline = place(ShiftType.DAY, ShiftType.EVENING, 0);
+        List<TimelineItemDraft> buffered = place(ShiftType.DAY, ShiftType.EVENING, 30);
+
+        TimelineItemDraft baseSleep = itemOf(baseline, ActivityKind.NORMAL_SLEEP);
+        TimelineItemDraft bufferedSleep = itemOf(buffered, ActivityKind.NORMAL_SLEEP);
+        assertThat(Duration.between(baseSleep.start(), baseSleep.end()).toMinutes()).isEqualTo(540);
+        assertThat(Duration.between(bufferedSleep.start(), bufferedSleep.end()).toMinutes()).isEqualTo(570);
+        assertThat(bufferedSleep.start()).isEqualTo(baseSleep.start()); // 시작은 그대로, 종료만 30분 늦어짐
+
+        assertSleepImmediatelyFollowedByWakeUp(buffered, ActivityKind.NORMAL_SLEEP, ActivityKind.POST_SLEEP_WAKE_UP);
+
+        // 통근/준비/근무 시작 경계는 buffer와 무관하게 그대로여야 한다(뒤에서 역산 배치되는 블록이라
+        // sleep 길이 변화의 영향을 받지 않음).
+        assertThat(itemOf(buffered, ActivityKind.PRE_WORK_PREPARATION).start())
+                .isEqualTo(itemOf(baseline, ActivityKind.PRE_WORK_PREPARATION).start());
+        assertThat(itemOf(buffered, ActivityKind.WORK_START).start())
+                .isEqualTo(itemOf(baseline, ActivityKind.WORK_START).start());
+
+        assertInvariants(buffered, ShiftType.DAY, ShiftType.EVENING);
+    }
+
+    @Test
+    void buffer_30_이어도_여유가_없으면_EVENING_TO_DAY_수면은_그대로다() {
+        List<TimelineItemDraft> baseline = place(ShiftType.EVENING, ShiftType.DAY, 0);
+        List<TimelineItemDraft> buffered = place(ShiftType.EVENING, ShiftType.DAY, 30);
+
+        TimelineItemDraft baseSleep = itemOf(baseline, ActivityKind.NORMAL_SLEEP);
+        TimelineItemDraft bufferedSleep = itemOf(buffered, ActivityKind.NORMAL_SLEEP);
+
+        // TIGHT budget이라 raw 여유시간이 이미 상한보다 작음 -> buffer가 상한을 늘려도 효과 없음.
+        assertThat(bufferedSleep.start()).isEqualTo(baseSleep.start());
+        assertThat(bufferedSleep.end()).isEqualTo(baseSleep.end());
+
+        assertInvariants(buffered, ShiftType.EVENING, ShiftType.DAY);
+    }
+
+    @Test
+    void buffer_30_이어도_NAP_길이는_영향받지_않는다_DAY_TO_NIGHT() {
+        List<TimelineItemDraft> baseline = place(ShiftType.DAY, ShiftType.NIGHT, 0);
+        List<TimelineItemDraft> buffered = place(ShiftType.DAY, ShiftType.NIGHT, 30);
+
+        TimelineItemDraft baseNap = itemOf(baseline, ActivityKind.PRE_NIGHT_NAP);
+        TimelineItemDraft bufferedNap = itemOf(buffered, ActivityKind.PRE_NIGHT_NAP);
+        assertThat(bufferedNap).isEqualTo(baseNap);
+        assertThat(Duration.between(bufferedNap.start(), bufferedNap.end()).toMinutes()).isEqualTo(90);
+
+        TimelineItemDraft baseSleep = itemOf(baseline, ActivityKind.NORMAL_SLEEP);
+        TimelineItemDraft bufferedSleep = itemOf(buffered, ActivityKind.NORMAL_SLEEP);
+        long baseMinutes = Duration.between(baseSleep.start(), baseSleep.end()).toMinutes();
+        long bufferedMinutes = Duration.between(bufferedSleep.start(), bufferedSleep.end()).toMinutes();
+        assertThat(bufferedMinutes).isBetween(baseMinutes, baseMinutes + 30);
+        assertThat(bufferedSleep.end()).isBeforeOrEqualTo(bufferedNap.start()); // 여전히 안 겹침
+
+        assertInvariants(buffered, ShiftType.DAY, ShiftType.NIGHT);
+    }
+
+    @Test
+    void buffer가_NIGHT_TO_NIGHT_회복수면_상한에도_반영되고_경계를_넘지_않는다() {
+        List<TimelineItemDraft> baseline = place(ShiftType.NIGHT, ShiftType.NIGHT, 0);
+        List<TimelineItemDraft> buffered = place(ShiftType.NIGHT, ShiftType.NIGHT, 30);
+
+        TimelineItemDraft baseSleep = itemOf(baseline, ActivityKind.RECOVERY_SLEEP);
+        TimelineItemDraft bufferedSleep = itemOf(buffered, ActivityKind.RECOVERY_SLEEP);
+        long baseMinutes = Duration.between(baseSleep.start(), baseSleep.end()).toMinutes();
+        long bufferedMinutes = Duration.between(bufferedSleep.start(), bufferedSleep.end()).toMinutes();
+        assertThat(bufferedMinutes).isBetween(baseMinutes, baseMinutes + 30);
+
+        assertInvariants(buffered, ShiftType.NIGHT, ShiftType.NIGHT);
+    }
+
+    @Test
+    void buffer가_NIGHT_TO_OFF_회복수면_상한에도_반영되고_경계를_넘지_않는다() {
+        List<TimelineItemDraft> baseline = place(ShiftType.NIGHT, ShiftType.OFF, 0);
+        List<TimelineItemDraft> buffered = place(ShiftType.NIGHT, ShiftType.OFF, 30);
+
+        TimelineItemDraft baseSleep = itemOf(baseline, ActivityKind.RECOVERY_SLEEP);
+        TimelineItemDraft bufferedSleep = itemOf(buffered, ActivityKind.RECOVERY_SLEEP);
+        long baseMinutes = Duration.between(baseSleep.start(), baseSleep.end()).toMinutes();
+        long bufferedMinutes = Duration.between(bufferedSleep.start(), bufferedSleep.end()).toMinutes();
+        assertThat(baseMinutes).isEqualTo(480); // 기존 상한(8시간)
+        assertThat(bufferedMinutes).isEqualTo(510); // 상한이 30분 늘어난 만큼 실제로 늘어남(raw가 충분함)
+
+        assertInvariants(buffered, ShiftType.NIGHT, ShiftType.OFF);
+    }
+
+    @Test
+    void sleepBuffer가_30을_넘거나_음수여도_방어적으로_0에서_30사이로_정규화된다() {
+        TimelineRange range = rangeCalculator.calculate(date, ShiftType.DAY, ShiftType.EVENING, standardEnv());
+        TimelineBudgetLevel budget = budgetClassifier.classify(range.timelineStart(), range.timelineEnd());
+
+        List<TimelineItemDraft> over = placer.place(ShiftType.DAY, ShiftType.EVENING, range, budget, 9999);
+        List<TimelineItemDraft> capped = placer.place(ShiftType.DAY, ShiftType.EVENING, range, budget, 30);
+        assertThat(itemOf(over, ActivityKind.NORMAL_SLEEP)).isEqualTo(itemOf(capped, ActivityKind.NORMAL_SLEEP));
+
+        List<TimelineItemDraft> negative = placer.place(ShiftType.DAY, ShiftType.EVENING, range, budget, -10);
+        List<TimelineItemDraft> zero = placer.place(ShiftType.DAY, ShiftType.EVENING, range, budget, 0);
+        assertThat(itemOf(negative, ActivityKind.NORMAL_SLEEP)).isEqualTo(itemOf(zero, ActivityKind.NORMAL_SLEEP));
     }
 }
