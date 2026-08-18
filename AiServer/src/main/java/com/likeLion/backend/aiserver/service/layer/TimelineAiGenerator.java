@@ -1,6 +1,7 @@
 package com.likeLion.backend.aiserver.service.layer;
 
 import com.likeLion.backend.aiserver.dto.timeline.AnalysisResultDto;
+import com.likeLion.backend.aiserver.dto.timeline.PersonalizationDto;
 import com.likeLion.backend.aiserver.dto.timeline.RawTimelineAiResponse;
 import com.likeLion.backend.aiserver.dto.timeline.ShiftTimesDto;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineGenerateRequest;
@@ -15,6 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -33,6 +36,9 @@ public class TimelineAiGenerator {
     @Value("classpath:prompts/timeline_today.st")
     private Resource todayPromptResource;
 
+    @Value("${spring.ai.openai.chat.options.timeline-model:gpt-4o-mini}")
+    private String timelineModel;
+
     public TimelineAiGenerator(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
@@ -41,7 +47,8 @@ public class TimelineAiGenerator {
         BeanOutputConverter<RawTimelineAiResponse> outputConverter = new BeanOutputConverter<>(RawTimelineAiResponse.class);
         Map<String, Object> modelMap = buildCommonModelMap(request, outputConverter);
 
-        PromptTemplate template = new PromptTemplate(futurePromptResource);
+        String promptTemplateString = loadResourceAsString(futurePromptResource);
+        PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
         return callChatModel(promptText, outputConverter);
     }
@@ -70,9 +77,18 @@ public class TimelineAiGenerator {
             modelMap.put("consecutiveDays", "0");
         }
 
-        PromptTemplate template = new PromptTemplate(todayPromptResource);
+        String promptTemplateString = loadResourceAsString(todayPromptResource);
+        PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
         return callChatModel(promptText, outputConverter);
+    }
+
+    private String loadResourceAsString(Resource resource) {
+        try {
+            return resource.getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to load prompt template resource: " + resource.getFilename(), e);
+        }
     }
 
     private Map<String, Object> buildCommonModelMap(TimelineGenerateRequest request, BeanOutputConverter<?> outputConverter) {
@@ -81,7 +97,19 @@ public class TimelineAiGenerator {
         map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : "OFF");
         map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : "OFF");
         map.put("transitionType", request.transitionType() != null ? request.transitionType() : "OFF_TO_OFF");
+        map.put("currentWorkEnd", (request.currentWorkEnd() != null && !request.currentWorkEnd().isBlank()) ? request.currentWorkEnd() : "해당 없음");
+        map.put("nextWorkStart", (request.nextWorkStart() != null && !request.nextWorkStart().isBlank()) ? request.nextWorkStart() : "해당 없음");
+        map.put("commuteMinutes", request.commuteMinutes() != null ? request.commuteMinutes() : 30);
         map.put("userNotes", (request.userNotes() != null && !request.userNotes().isBlank()) ? request.userNotes() : "없음");
+
+        PersonalizationDto personalization = request.personalization();
+        if (personalization != null) {
+            map.put("recommendedSleepBuffer", String.valueOf(personalization.sleepBufferOrDefault()));
+            map.put("adjustedCaffeineCutoff", personalization.caffeineCutoffOrDefault());
+        } else {
+            map.put("recommendedSleepBuffer", "0");
+            map.put("adjustedCaffeineCutoff", "해당 없음");
+        }
 
         ShiftTimesDto shiftTimes = request.shiftTimes();
         if (shiftTimes != null) {
@@ -100,6 +128,8 @@ public class TimelineAiGenerator {
 
     private RawTimelineAiResponse callChatModel(String promptText, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
+                .model(timelineModel)
+                .temperature(0.3)
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
                         .type(OpenAiChatModel.ResponseFormat.Type.JSON_OBJECT)
                         .build())

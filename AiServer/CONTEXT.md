@@ -28,13 +28,16 @@
 
 ---
 
-## 3. 통합 분석 지표 (Integrated Analysis Metrics)
+## 3. 통합 분석 및 개인화 보정 지표 (Integrated Analysis & Personalization Metrics)
 
 - **위험도 (Risk Level)**: 근무 전환 패턴, 연속 근무 일수, 다음 근무까지의 잔여 휴식 시간을 종합 산출한 위험 등급 (`NORMAL`, `CAUTION`, `DANGER`).
 - **피로도 (Fatigue Level)**: 사용자의 주관적/측정된 현재 피로 상태 (`LOW`, `MEDIUM`, `HIGH`).
 - **회복 상태 (Recovery State / RecoveryStatus)**: 피로도, 수면 시간, 걸음 수, 심박수를 종합 합산한 신체 회복 등급 (`GOOD`, `RECOVERY_NEEDED`, `RECOVERY_PRIORITY`).
 - **가용 시간 (Available Hours)**: 통근 시간을 제외하고 수면과 개인 활동에 쓸 수 있는 순수 잔여 시간.
 - **연속 근무 일수 (Consecutive Days)**: 휴무(OFF) 없이 연속으로 근무한 일수.
+- **개인화 보정 제약조건 (Personalization Constraints)**:
+  - **추가 수면 버퍼 (recommendedSleepBuffer)**: 과거 수면 부족(<6h) 또는 고피로(>=8) 이력을 기반으로 기본 수면에 최대 추가 가산을 고려할 수면 시간(분 단위, 가용 시간 한도 내 탄력 적용).
+  - **카페인 차단 권장 시각 (adjustedCaffeineCutoff)**: 과거 카페인 섭취 및 수면 부족 이력을 기반으로 마지막 섭취 시각보다 30분 앞당겨 산출된 카페인 섭취 중단 시각 ("HH:mm").
 
 ---
 
