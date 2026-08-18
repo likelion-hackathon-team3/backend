@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -33,6 +35,9 @@ public class TimelineAiGenerator {
     @Value("classpath:prompts/timeline_today.st")
     private Resource todayPromptResource;
 
+    @Value("${spring.ai.openai.chat.options.timeline-model:gpt-4o-mini}")
+    private String timelineModel;
+
     public TimelineAiGenerator(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
@@ -41,7 +46,8 @@ public class TimelineAiGenerator {
         BeanOutputConverter<RawTimelineAiResponse> outputConverter = new BeanOutputConverter<>(RawTimelineAiResponse.class);
         Map<String, Object> modelMap = buildCommonModelMap(request, outputConverter);
 
-        PromptTemplate template = new PromptTemplate(futurePromptResource);
+        String promptTemplateString = loadResourceAsString(futurePromptResource);
+        PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
         return callChatModel(promptText, outputConverter);
     }
@@ -70,9 +76,18 @@ public class TimelineAiGenerator {
             modelMap.put("consecutiveDays", "0");
         }
 
-        PromptTemplate template = new PromptTemplate(todayPromptResource);
+        String promptTemplateString = loadResourceAsString(todayPromptResource);
+        PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
         return callChatModel(promptText, outputConverter);
+    }
+
+    private String loadResourceAsString(Resource resource) {
+        try {
+            return resource.getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to load prompt template resource: " + resource.getFilename(), e);
+        }
     }
 
     private Map<String, Object> buildCommonModelMap(TimelineGenerateRequest request, BeanOutputConverter<?> outputConverter) {
@@ -103,6 +118,8 @@ public class TimelineAiGenerator {
 
     private RawTimelineAiResponse callChatModel(String promptText, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
+                .model(timelineModel)
+                .temperature(0.3)
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
                         .type(OpenAiChatModel.ResponseFormat.Type.JSON_OBJECT)
                         .build())
