@@ -262,4 +262,50 @@ class TimelineServiceImplTest {
         assertThat(captor.getValue().personalization().adjustedCaffeineCutoff()).isEqualTo("14:30");
         assertThat(captor.getValue().personalization().hasRepeatedPattern()).isTrue();
     }
+
+    @Test
+    @DisplayName("AI가 순서가 뒤섞인 timelineItems를 반환해도 시간순으로 자동 정렬하여 반환한다")
+    void generateTimeline_autoSortsTimelineItems() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 17);
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.OFF,
+                ShiftType.NIGHT,
+                "OFF_TO_NIGHT",
+                "18:00",
+                null,
+                "2026-08-17T23:00",
+                35,
+                null,
+                null,
+                null,
+                null
+        );
+
+        // 뒤섞인 순서: 20:30 쪽잠 -> 22:00 기상 -> 22:30 준비 -> 21:00 저녁식사 -> 23:00 근무
+        List<TimelineItemDto> unsortedItems = List.of(
+                new TimelineItemDto("20:30", "쪽잠", "쪽잠", ActivityType.NAP, null),
+                new TimelineItemDto("22:00", "기상", "기상", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("22:30", "출근 준비", "준비", ActivityType.PREPARATION, null),
+                new TimelineItemDto("21:00", "저녁 식사", "식사", ActivityType.MEAL, null),
+                new TimelineItemDto("23:00", "근무 시작", "근무", ActivityType.WORK, null)
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", unsortedItems, List.of("팁")
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+
+        // when
+        TimelineGenerateResponse response = timelineService.generateTimeline(request);
+
+        // then
+        assertThat(response.timelineItems()).hasSize(5);
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("20:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("21:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("22:00");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("22:30");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("23:00");
+    }
 }
