@@ -307,4 +307,83 @@ class TimelineServiceImplTest {
         assertThat(response.timelineItems().get(3).time()).isEqualTo("22:30");
         assertThat(response.timelineItems().get(4).time()).isEqualTo("23:00");
     }
+
+    @Test
+    @DisplayName("DAY(15:00 퇴근) -> EVENING(15:00 출근)에서 WORK(15:00)가 중간에 위치해도 항상 마지막 항목으로 재배치된다")
+    void generateTimeline_workAlwaysPlacedAtLast() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 20);
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.EVENING,
+                "DAY_TO_EVENING",
+                null,
+                "2026-08-20T15:00",
+                "2026-08-21T15:00",
+                30,
+                null,
+                null,
+                null,
+                null
+        );
+
+        // 잘못된 순서로 WORK(15:00)가 앞에 오고 뒤에 기상/출근준비가 오는 경우
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("15:00", "EVENING 근무 시작", "근무", ActivityType.WORK, null),
+                new TimelineItemDto("23:30", "취침", "수면", ActivityType.SLEEP, null),
+                new TimelineItemDto("08:00", "기상", "기상", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("12:30", "점심 식사", "식사", ActivityType.MEAL, null),
+                new TimelineItemDto("14:00", "출근 준비", "준비", ActivityType.PREPARATION, null)
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", items, List.of("팁")
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+
+        // when
+        TimelineGenerateResponse response = timelineService.generateTimeline(request);
+
+        // then
+        assertThat(response.timelineItems()).hasSize(5);
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("23:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("08:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("12:30");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("14:00");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("15:00");
+        assertThat(response.timelineItems().get(4).category()).isEqualTo(ActivityType.WORK);
+    }
+
+    @Test
+    @DisplayName("null 카테고리가 전달되면 REST로 안전하게 정규화된다")
+    void generateTimeline_nullCategoryNormalizesToRest() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 20);
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.DAY,
+                "DAY_TO_DAY",
+                null
+        );
+
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("18:00", "자유 시간", "여유 시간", null, null),
+                new TimelineItemDto("07:00", "DAY 근무", "근무", ActivityType.WORK, null)
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", items, List.of("팁")
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+
+        // when
+        TimelineGenerateResponse response = timelineService.generateTimeline(request);
+
+        // then
+        assertThat(response.timelineItems()).hasSize(2);
+        assertThat(response.timelineItems().get(0).category()).isEqualTo(ActivityType.REST);
+    }
 }
+

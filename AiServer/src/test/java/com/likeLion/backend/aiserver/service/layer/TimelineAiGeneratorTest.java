@@ -71,8 +71,9 @@ class TimelineAiGeneratorTest {
                         {"time": "20:00", "title": "사전 낮잠", "description": "90분 낮잠", "category": "NAP", "highlight": "권장 낮잠: 1시간 30분"},
                         {"time": "21:30", "title": "기상 및 식사", "description": "가벼운 식사", "category": "MEAL", "highlight": null},
                         {"time": "22:00", "title": "출근 준비", "description": "샤워 및 환복", "category": "PREPARATION", "highlight": null},
-                        {"time": "22:30", "title": "출근 이동", "description": "병원 이동", "category": "FREE", "highlight": null},
+                        {"time": "22:30", "title": "출근 이동", "description": "병원 이동", "category": "REST", "highlight": null},
                         {"time": "23:00", "title": "NIGHT 근무 시작", "description": "야간 근무", "category": "WORK", "highlight": null}
+
                     ],
                     "recommendations": ["출근 전 30분 각성 시간을 확보하세요."]
                 }
