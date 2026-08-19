@@ -236,4 +236,32 @@ class FeedbackServiceTest {
         feedbackService.save(req("2026-08-30", 6.0, false, null, 99, 3));
         assertThat(feedbackRepository.findByFeedbackDate(LocalDate.parse("2026-08-30"))).isEmpty();
     }
+
+    @Test
+    void 정상_삭제() {
+        feedbackService.save(req("2026-09-10", 6.0, false, null, 5, 3));
+        assertThat(feedbackRepository.findByFeedbackDate(LocalDate.parse("2026-09-10"))).isPresent();
+
+        FeedbackResponse res = feedbackService.delete("2026-09-10");
+
+        assertThat(res.isSuccess()).isTrue();
+        assertThat(res.getMessage()).isEqualTo("삭제되었습니다.");
+        assertThat(feedbackRepository.findByFeedbackDate(LocalDate.parse("2026-09-10"))).isEmpty();
+    }
+
+    @Test
+    void 없는_날짜_삭제() {
+        FeedbackResponse res = feedbackService.delete("2026-09-11");
+
+        assertThat(res.isSuccess()).isFalse();
+        assertThat(res.getMessage()).isEqualTo("해당 날짜에 등록된 피드백이 없습니다.");
+    }
+
+    @Test
+    void 삭제_날짜_형식_오류시_실패() {
+        FeedbackResponse res = feedbackService.delete("2026/09/11");
+
+        assertThat(res.isSuccess()).isFalse();
+        assertThat(res.getMessage()).isEqualTo("날짜 또는 시간 형식이 올바르지 않습니다.");
+    }
 }

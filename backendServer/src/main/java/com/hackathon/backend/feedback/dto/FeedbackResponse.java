@@ -17,6 +17,16 @@ public class FeedbackResponse {
         return new FeedbackResponse(true, "피드백이 성공적으로 등록되었습니다.");
     }
 
+    // DELETE /api/feedback?feedbackDate=... 성공
+    public static FeedbackResponse deleted() {
+        return new FeedbackResponse(true, "삭제되었습니다.");
+    }
+
+    // DELETE /api/feedback?feedbackDate=... : 해당 날짜의 Feedback이 없음
+    public static FeedbackResponse notFound() {
+        return new FeedbackResponse(false, "해당 날짜에 등록된 피드백이 없습니다.");
+    }
+
     // 필수 피드백 항목 누락 (feedbackDate/actualSleepDuration/caffeineIntake.taken/
     // postShiftFatigue/routineHelpfulness 중 하나라도 없음)
     public static FeedbackResponse missing() {
