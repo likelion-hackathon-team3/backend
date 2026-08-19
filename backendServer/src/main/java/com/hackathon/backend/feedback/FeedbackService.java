@@ -100,6 +100,22 @@ public class FeedbackService {
         return FeedbackResponse.ok();
     }
 
+    // DELETE /api/feedback?feedbackDate=YYYY-MM-DD : 특정 날짜 피드백 삭제
+    @Transactional
+    public FeedbackResponse delete(String feedbackDate) {
+        LocalDate target = parseDate(feedbackDate);
+        if (target == null) {
+            return FeedbackResponse.invalidFormat();
+        }
+
+        return feedbackRepository.findByFeedbackDate(target)
+                .map(feedback -> {
+                    feedbackRepository.delete(feedback);
+                    return FeedbackResponse.deleted();
+                })
+                .orElseGet(FeedbackResponse::notFound);
+    }
+
     // feedbackDate와 feedbackDate+1일의 Schedule을 조회해서 transitionType을 계산한다.
     // 둘 중 하나라도 없으면 OFF로 추론하지 않고 null을 반환한다.
     private String calculateTransitionType(LocalDate feedbackDate) {
