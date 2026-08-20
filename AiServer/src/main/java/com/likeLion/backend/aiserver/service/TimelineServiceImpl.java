@@ -68,11 +68,7 @@ public class TimelineServiceImpl implements TimelineService {
             rawResponse = timelineAiGenerator.generateFutureTimeline(normalizedRequest);
         }
 
-        List<TimelineItemDto> sanitizedItems = sanitizeAndSortTimelineItems(
-                rawResponse.timelineItems(),
-                normalizedRequest.currentTime(),
-                normalizedRequest.currentWorkEnd()
-        );
+        List<TimelineItemDto> sanitizedItems = sanitizeAndSortTimelineItems(rawResponse.timelineItems());
 
         return new TimelineGenerateResponse(
                 targetDate,
@@ -84,7 +80,7 @@ public class TimelineServiceImpl implements TimelineService {
         );
     }
 
-    private List<TimelineItemDto> sanitizeAndSortTimelineItems(List<TimelineItemDto> items, String currentTime, String currentWorkEnd) {
+    private List<TimelineItemDto> sanitizeAndSortTimelineItems(List<TimelineItemDto> items) {
         if (items == null || items.isEmpty()) {
             return List.of();
         }
@@ -107,17 +103,23 @@ public class TimelineServiceImpl implements TimelineService {
             return normalizedList;
         }
 
-        // 2. LocalDateTime 기반 자연 정렬
-        normalizedList.sort((i1, i2) -> {
-            try {
-                java.time.LocalDateTime t1 = java.time.LocalDateTime.parse(i1.time().trim());
-                java.time.LocalDateTime t2 = java.time.LocalDateTime.parse(i2.time().trim());
-                return t1.compareTo(t2);
-            } catch (Exception e) {
-                return 0; // 예외 발생 시 순서 유지
-            }
-        });
+        // 2. LocalDateTime 기반 자연 정렬 (파싱 실패 항목은 뒤로 배치)
+        normalizedList.sort(Comparator.comparing(
+                item -> parseLocalDateTimeOrNull(item.time()),
+                Comparator.nullsLast(Comparator.naturalOrder())
+        ));
 
         return normalizedList;
+    }
+
+    private java.time.LocalDateTime parseLocalDateTimeOrNull(String timeStr) {
+        if (timeStr == null || timeStr.isBlank()) {
+            return null;
+        }
+        try {
+            return java.time.LocalDateTime.parse(timeStr.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

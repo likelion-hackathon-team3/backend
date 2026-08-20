@@ -42,9 +42,9 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("15:00", "퇴근 후 휴식", "가벼운 휴식", ActivityType.REST, null),
-                new TimelineItemDto("18:00", "사전 수면", "NIGHT 근무 전 필수 낮잠", ActivityType.NAP, "권장 낮잠: 2시간"),
-                new TimelineItemDto("23:00", "NIGHT 근무 시작", "야간 근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-20T15:00", "퇴근 후 휴식", "가벼운 휴식", ActivityType.REST, null),
+                new TimelineItemDto("2026-08-20T18:00", "사전 수면", "NIGHT 근무 전 필수 낮잠", ActivityType.NAP, "권장 낮잠: 2시간"),
+                new TimelineItemDto("2026-08-20T23:00", "NIGHT 근무 시작", "야간 근무", ActivityType.WORK, null)
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "오늘부터 내일 Night 근무 전까지의 맞춤 계획이에요",
@@ -92,11 +92,11 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("23:30", "저녁 식사", "가벼운 식사", ActivityType.MEAL, null),
-                new TimelineItemDto("00:10", "취침 준비", "샤워 및 조명 낮추기", ActivityType.PREPARATION, null),
-                new TimelineItemDto("00:40", "취침", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
-                new TimelineItemDto("05:50", "기상", "햇빛 쬐기", ActivityType.WAKE_UP, null),
-                new TimelineItemDto("07:00", "DAY 근무 시작", "주간 근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-17T23:30", "저녁 식사", "가벼운 식사", ActivityType.MEAL, null),
+                new TimelineItemDto("2026-08-18T00:10", "취침 준비", "샤워 및 조명 낮추기", ActivityType.PREPARATION, null),
+                new TimelineItemDto("2026-08-18T00:40", "취침", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
+                new TimelineItemDto("2026-08-18T05:50", "기상", "햇빛 쬐기", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("2026-08-18T07:00", "DAY 근무 시작", "주간 근무", ActivityType.WORK, null)
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요",
@@ -170,7 +170,7 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("08:30", "퇴근 후 수면", "1차 수면", ActivityType.SLEEP, "권장 수면: 4시간 30분")
+                new TimelineItemDto("2026-08-20T08:30", "퇴근 후 수면", "1차 수면", ActivityType.SLEEP, "권장 수면: 4시간 30분")
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "NIGHT 퇴근 후 OFF 일정 계획",

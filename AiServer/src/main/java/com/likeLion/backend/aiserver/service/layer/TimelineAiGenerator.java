@@ -111,8 +111,14 @@ public class TimelineAiGenerator {
             try {
                 java.time.LocalDateTime start = java.time.LocalDateTime.parse(request.currentWorkEnd());
                 java.time.LocalDateTime end = java.time.LocalDateTime.parse(request.nextWorkStart());
-                long hours = java.time.Duration.between(start, end).toHours();
-                freeTime = hours + "시간";
+                java.time.Duration duration = java.time.Duration.between(start, end);
+                long hours = duration.toHours();
+                long minutes = duration.toMinutesPart();
+                if (minutes > 0) {
+                    freeTime = hours + "시간 " + minutes + "분";
+                } else {
+                    freeTime = hours + "시간";
+                }
             } catch (Exception ignored) {
             }
         }
