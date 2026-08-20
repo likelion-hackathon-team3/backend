@@ -114,34 +114,11 @@ public class TimelineServiceImpl implements TimelineService {
         // 3. 시간 오프셋 기반 정렬 (WORK 항목은 다음 근무 시작이므로 앵커와 시간이 같거나 앞서면 다음날(+1440)로 간주)
         normalizedList.sort(Comparator.comparingInt(item -> toOffsetMinutes(item, anchorMinutes)));
 
-        // 4. 안전망: WORK 항목이 포함되어 있다면 WORK 항목을 타임라인 맨 마지막으로 이동하여 순서 모순(WORK 후 WAKE_UP/PREPARATION 등) 원천 차단
-        List<TimelineItemDto> nonWorkItems = new ArrayList<>();
-        List<TimelineItemDto> workItems = new ArrayList<>();
-        for (TimelineItemDto item : normalizedList) {
-            if (item.category() == ActivityType.WORK) {
-                workItems.add(item);
-            } else {
-                nonWorkItems.add(item);
-            }
-        }
-
-        if (!workItems.isEmpty()) {
-            List<TimelineItemDto> result = new ArrayList<>(nonWorkItems);
-            result.addAll(workItems);
-            return result;
-        }
-
         return normalizedList;
     }
 
     private int parseAnchorMinutes(String currentTime, String currentWorkEnd, List<TimelineItemDto> items) {
-        if (currentTime != null && !currentTime.isBlank()) {
-            try {
-                LocalTime time = LocalTime.parse(currentTime.trim(), TIME_FORMATTER);
-                return time.getHour() * 60 + time.getMinute();
-            } catch (Exception ignored) {
-            }
-        }
+        // 1. currentWorkEnd가 가장 확실한 트랜지션의 시작점이므로 최우선 순위로 파싱
         if (currentWorkEnd != null && !currentWorkEnd.isBlank() && !currentWorkEnd.equals("해당 없음")) {
             try {
                 // "2026-08-20T15:00" 또는 "15:00" 형태 파싱
@@ -153,6 +130,17 @@ public class TimelineServiceImpl implements TimelineService {
             } catch (Exception ignored) {
             }
         }
+
+        // 2. currentWorkEnd가 없다면(예: OFF 상태) 현재 시간을 기준점으로 삼음
+        if (currentTime != null && !currentTime.isBlank()) {
+            try {
+                LocalTime time = LocalTime.parse(currentTime.trim(), TIME_FORMATTER);
+                return time.getHour() * 60 + time.getMinute();
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 3. 둘 다 불가능하다면 AI가 응답한 첫 번째 항목의 시간을 기준점으로 폴백
         for (TimelineItemDto item : items) {
             if (item != null && item.time() != null && !item.time().isBlank()) {
                 try {
@@ -162,7 +150,8 @@ public class TimelineServiceImpl implements TimelineService {
                 }
             }
         }
-        return 0;
+        
+        return 0; // 최후의 수단: 자정
     }
 
     private int toOffsetMinutes(TimelineItemDto item, int anchorMinutes) {
@@ -176,7 +165,7 @@ public class TimelineServiceImpl implements TimelineService {
 
             // WORK 항목은 다음 근무 시작을 나타내므로 앵커 시각 이하이면 24시간 뒤(+1440분)로 오프셋 부여
             if (item.category() == ActivityType.WORK) {
-                return (minutes <= anchorMinutes) ? (minutes + 1440) : (minutes + 1440);
+                return (minutes <= anchorMinutes) ? (minutes + 1440) : minutes;
             }
 
             if (minutes < anchorMinutes) {

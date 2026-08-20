@@ -36,6 +36,9 @@ public class TimelineAiGenerator {
     @Value("classpath:prompts/timeline_today.st")
     private Resource todayPromptResource;
 
+    @Value("classpath:prompts/timeline_critic.st")
+    private Resource criticPromptResource;
+
     @Value("${spring.ai.openai.chat.options.timeline-model:gpt-4o-mini}")
     private String timelineModel;
 
@@ -50,7 +53,7 @@ public class TimelineAiGenerator {
         String promptTemplateString = loadResourceAsString(futurePromptResource);
         PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
-        return callChatModel(promptText, outputConverter);
+        return executeSequentialPipeline(promptText, modelMap, outputConverter);
     }
 
     public RawTimelineAiResponse generateTodayTimeline(TimelineGenerateRequest request) {
@@ -80,7 +83,7 @@ public class TimelineAiGenerator {
         String promptTemplateString = loadResourceAsString(todayPromptResource);
         PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
-        return callChatModel(promptText, outputConverter);
+        return executeSequentialPipeline(promptText, modelMap, outputConverter);
     }
 
     private String loadResourceAsString(Resource resource) {
@@ -126,7 +129,7 @@ public class TimelineAiGenerator {
         return map;
     }
 
-    private RawTimelineAiResponse callChatModel(String promptText, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
+    private RawTimelineAiResponse executeSequentialPipeline(String generatorPromptText, Map<String, Object> modelMap, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(timelineModel)
                 .temperature(0.3)
@@ -135,12 +138,25 @@ public class TimelineAiGenerator {
                         .build())
                 .build();
 
-        UserMessage userMessage = UserMessage.builder()
-                .text(promptText)
+        // 1. Generator AI Call
+        UserMessage generatorMessage = UserMessage.builder()
+                .text(generatorPromptText)
                 .build();
+        var generatorResponse = chatModel.call(new Prompt(generatorMessage, options));
+        String draftJson = generatorResponse.getResult().getOutput().getText();
 
-        var response = chatModel.call(new Prompt(userMessage, options));
-        String content = response.getResult().getOutput().getText();
-        return outputConverter.convert(content);
+        // 2. Critic AI Call
+        modelMap.put("draftJson", draftJson);
+        String criticPromptTemplateString = loadResourceAsString(criticPromptResource);
+        PromptTemplate criticTemplate = new PromptTemplate(criticPromptTemplateString);
+        String criticPromptText = criticTemplate.render(modelMap);
+
+        UserMessage criticMessage = UserMessage.builder()
+                .text(criticPromptText)
+                .build();
+        var criticResponse = chatModel.call(new Prompt(criticMessage, options));
+        String finalJson = criticResponse.getResult().getOutput().getText();
+
+        return outputConverter.convert(finalJson);
     }
 }

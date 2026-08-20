@@ -42,6 +42,11 @@ class TimelineAiGeneratorTest {
         ByteArrayResource resource = new ByteArrayResource(dummyPrompt.getBytes(StandardCharsets.UTF_8));
         ReflectionTestUtils.setField(timelineAiGenerator, "futurePromptResource", resource);
         ReflectionTestUtils.setField(timelineAiGenerator, "todayPromptResource", resource);
+        
+        String criticPrompt = "Critic template {draftJson}";
+        ByteArrayResource criticResource = new ByteArrayResource(criticPrompt.getBytes(StandardCharsets.UTF_8));
+        ReflectionTestUtils.setField(timelineAiGenerator, "criticPromptResource", criticResource);
+        
         ReflectionTestUtils.setField(timelineAiGenerator, "timelineModel", "gpt-4o-mini");
     }
 
@@ -93,9 +98,9 @@ class TimelineAiGeneratorTest {
         assertThat(response.timelineItems()).hasSize(5);
 
         ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
-        verify(chatModel).call(promptCaptor.capture());
+        org.mockito.Mockito.verify(chatModel, org.mockito.Mockito.times(2)).call(promptCaptor.capture());
 
-        Prompt executedPrompt = promptCaptor.getValue();
+        Prompt executedPrompt = promptCaptor.getAllValues().get(1);
         OpenAiChatOptions options = (OpenAiChatOptions) executedPrompt.getOptions();
         assertThat(options.getModel()).isEqualTo("gpt-4o-mini");
         assertThat(options.getTemperature()).isEqualTo(0.3);
@@ -141,9 +146,9 @@ class TimelineAiGeneratorTest {
         // then
         assertThat(response).isNotNull();
         ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
-        verify(chatModel).call(promptCaptor.capture());
+        org.mockito.Mockito.verify(chatModel, org.mockito.Mockito.times(2)).call(promptCaptor.capture());
 
-        String renderedPrompt = promptCaptor.getValue().getContents();
+        String renderedPrompt = promptCaptor.getAllValues().get(0).getContents();
         assertThat(renderedPrompt).contains("30");
         assertThat(renderedPrompt).contains("14:30");
     }
