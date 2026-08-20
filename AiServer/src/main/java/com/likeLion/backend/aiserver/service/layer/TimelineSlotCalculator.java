@@ -60,8 +60,9 @@ public class TimelineSlotCalculator {
             workEnd = targetDate.atTime(15, 0); // 기본 당일 15:00
         }
 
-        // 0. 시작 기준점 계산 (currentTime이 workEnd보다 이후이면 currentTime부터 시작)
-        LocalDateTime effectiveStart = workEnd;
+        // 0. 시작 기준점 계산: 퇴근 후 귀가 완료 시각 = workEnd + commuteMinutes
+        LocalDateTime homeArrival = (request.currentShift() != ShiftType.OFF) ? workEnd.plusMinutes(commuteMinutes) : workEnd;
+        LocalDateTime effectiveStart = homeArrival;
         if (request.currentTime() != null && !request.currentTime().isBlank()) {
             try {
                 LocalTime ct = LocalTime.parse(request.currentTime().trim(), TIME_FORMATTER);
@@ -233,10 +234,10 @@ public class TimelineSlotCalculator {
                     long sleepMinutes = Math.min(desiredSleep, availableSleep);
                     LocalDateTime wakeTime = sleepStart.plusMinutes(sleepMinutes);
 
-                    // 저녁 식사
-                    LocalDateTime dinnerTime = effectiveStart.plusMinutes(30);
+                    // 저녁 식사 및 휴식 (귀가 후 10분 뒤)
+                    LocalDateTime dinnerTime = effectiveStart.plusMinutes(10);
                     if (dinnerTime.plusMinutes(DEFAULT_MEAL_MINUTES).isBefore(sleepStart)) {
-                        slots.add(new BaseSlotDto(formatIso(dinnerTime), ActivityType.MEAL, DEFAULT_MEAL_MINUTES, "저녁 식사 및 휴식", null));
+                        slots.add(new BaseSlotDto(formatIso(dinnerTime), ActivityType.MEAL, DEFAULT_MEAL_MINUTES, "귀가 후 식사 및 휴식", null));
                     }
 
                     slots.add(new BaseSlotDto(formatIso(sleepStart), ActivityType.SLEEP, sleepMinutes, "취침", "권장 수면: " + (sleepMinutes / 60) + "시간 " + (sleepMinutes % 60) + "분"));
