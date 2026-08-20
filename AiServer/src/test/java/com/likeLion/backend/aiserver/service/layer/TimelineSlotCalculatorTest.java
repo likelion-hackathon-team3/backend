@@ -134,4 +134,43 @@ class TimelineSlotCalculatorTest {
         assertThat(hasLunch).isTrue();
         assertThat(skeleton.flexIntervals()).isNotEmpty();
     }
+
+    @Test
+    @DisplayName("2시간 30분 초단축 교대(예: 퇴근 15:00, 다음 출근 17:30) 시 5.5시간 강제 수면 대신 쪽잠(NAP)이나 휴식(REST)으로 적응 생성된다")
+    void calculate_ultraShortTurnaround_createsNapOrRestWithoutTimeParadox() {
+        // given
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                LocalDate.of(2026, 8, 20),
+                ShiftType.DAY,
+                ShiftType.EVENING,
+                "DAY_TO_EVENING",
+                null,
+                "2026-08-20T15:00",
+                "2026-08-20T17:30",
+                20,
+                null,
+                null,
+                null
+        );
+
+        // when
+        TimelineSkeletonDto skeleton = slotCalculator.calculateSkeleton(request);
+
+        // then
+        assertThat(skeleton).isNotNull();
+        // 1. 마지막 일정은 17:30 WORK
+        BaseSlotDto last = skeleton.baseSlots().get(skeleton.baseSlots().size() - 1);
+        assertThat(last.time()).isEqualTo("2026-08-20T17:30");
+        assertThat(last.category()).isEqualTo(ActivityType.WORK);
+
+        // 2. 전체 슬롯들이 15:00 ~ 17:30 사이에 완벽히 수납됨 (시간 모순 없음)
+        assertThat(skeleton.baseSlots()).allMatch(s ->
+                s.time().compareTo("2026-08-20T15:00") >= 0 && s.time().compareTo("2026-08-20T17:30") <= 0
+        );
+
+        // 3. 5.5시간 긴 SLEEP이 강제되지 않고, NAP 또는 REST가 생성됨
+        boolean hasLongSleep = skeleton.baseSlots().stream()
+                .anyMatch(s -> s.category() == ActivityType.SLEEP && s.durationMinutes() > 180);
+        assertThat(hasLongSleep).isFalse();
+    }
 }
