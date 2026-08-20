@@ -120,38 +120,37 @@ public class TimelineServiceImpl implements TimelineService {
     private int parseAnchorMinutes(String currentTime, String currentWorkEnd, List<TimelineItemDto> items) {
         // 1. currentWorkEnd가 가장 확실한 트랜지션의 시작점이므로 최우선 순위로 파싱
         if (currentWorkEnd != null && !currentWorkEnd.isBlank() && !currentWorkEnd.equals("해당 없음")) {
-            try {
-                // "2026-08-20T15:00" 또는 "15:00" 형태 파싱
-                String timePart = currentWorkEnd.contains("T") ? currentWorkEnd.substring(currentWorkEnd.indexOf("T") + 1) : currentWorkEnd;
-                if (timePart.length() >= 5) {
-                    LocalTime time = LocalTime.parse(timePart.substring(0, 5), TIME_FORMATTER);
-                    return time.getHour() * 60 + time.getMinute();
-                }
-            } catch (Exception ignored) {
+            String timePart = currentWorkEnd.contains("T") ? currentWorkEnd.substring(currentWorkEnd.indexOf("T") + 1) : currentWorkEnd;
+            if (timePart.length() >= 5) {
+                Integer minutes = parseMinutesOrNull(timePart.substring(0, 5));
+                if (minutes != null) return minutes;
             }
         }
 
         // 2. currentWorkEnd가 없다면(예: OFF 상태) 현재 시간을 기준점으로 삼음
         if (currentTime != null && !currentTime.isBlank()) {
-            try {
-                LocalTime time = LocalTime.parse(currentTime.trim(), TIME_FORMATTER);
-                return time.getHour() * 60 + time.getMinute();
-            } catch (Exception ignored) {
-            }
+            Integer minutes = parseMinutesOrNull(currentTime);
+            if (minutes != null) return minutes;
         }
 
         // 3. 둘 다 불가능하다면 AI가 응답한 첫 번째 항목의 시간을 기준점으로 폴백
         for (TimelineItemDto item : items) {
             if (item != null && item.time() != null && !item.time().isBlank()) {
-                try {
-                    LocalTime time = LocalTime.parse(item.time().trim(), TIME_FORMATTER);
-                    return time.getHour() * 60 + time.getMinute();
-                } catch (Exception ignored) {
-                }
+                Integer minutes = parseMinutesOrNull(item.time());
+                if (minutes != null) return minutes;
             }
         }
         
         return 0; // 최후의 수단: 자정
+    }
+
+    private Integer parseMinutesOrNull(String timeStr) {
+        try {
+            LocalTime time = LocalTime.parse(timeStr.trim(), TIME_FORMATTER);
+            return time.getHour() * 60 + time.getMinute();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private int toOffsetMinutes(TimelineItemDto item, int anchorMinutes) {

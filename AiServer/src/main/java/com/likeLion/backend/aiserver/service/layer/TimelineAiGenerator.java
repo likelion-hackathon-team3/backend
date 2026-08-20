@@ -139,11 +139,7 @@ public class TimelineAiGenerator {
                 .build();
 
         // 1. Generator AI Call
-        UserMessage generatorMessage = UserMessage.builder()
-                .text(generatorPromptText)
-                .build();
-        var generatorResponse = chatModel.call(new Prompt(generatorMessage, options));
-        String draftJson = generatorResponse.getResult().getOutput().getText();
+        String draftJson = callModelForText(generatorPromptText, options);
 
         // 2. Critic AI Call
         modelMap.put("draftJson", draftJson);
@@ -151,12 +147,16 @@ public class TimelineAiGenerator {
         PromptTemplate criticTemplate = new PromptTemplate(criticPromptTemplateString);
         String criticPromptText = criticTemplate.render(modelMap);
 
-        UserMessage criticMessage = UserMessage.builder()
-                .text(criticPromptText)
-                .build();
-        var criticResponse = chatModel.call(new Prompt(criticMessage, options));
-        String finalJson = criticResponse.getResult().getOutput().getText();
+        String finalJson = callModelForText(criticPromptText, options);
 
         return outputConverter.convert(finalJson);
+    }
+
+    private String callModelForText(String promptText, OpenAiChatOptions options) {
+        UserMessage message = UserMessage.builder()
+                .text(promptText)
+                .build();
+        var response = chatModel.call(new Prompt(message, options));
+        return response.getResult().getOutput().getText();
     }
 }

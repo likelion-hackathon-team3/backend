@@ -68,7 +68,19 @@ class TimelineAiGeneratorTest {
                 null
         );
 
-        String mockAiJson = """
+        String brokenAiJson = """
+                {
+                    "pageTitle": "내일 Night 근무 전까지의 맞춤 계획이에요",
+                    "pageSubtitle": "야간 근무 전 충분한 낮잠과 식사를 챙겨보세요.",
+                    "timelineItems": [
+                        {"time": "23:00", "title": "NIGHT 근무 시작", "description": "야간 근무", "category": "WORK", "highlight": null},
+                        {"time": "21:30", "title": "기상", "description": "시간 역전 오류", "category": "WAKE_UP", "highlight": null}
+                    ],
+                    "recommendations": ["출근 전 30분 각성 시간을 확보하세요."]
+                }
+                """;
+
+        String fixedAiJson = """
                 {
                     "pageTitle": "내일 Night 근무 전까지의 맞춤 계획이에요",
                     "pageSubtitle": "야간 근무 전 충분한 낮잠과 식사를 챙겨보세요.",
@@ -78,16 +90,14 @@ class TimelineAiGeneratorTest {
                         {"time": "22:00", "title": "출근 준비", "description": "샤워 및 환복", "category": "PREPARATION", "highlight": null},
                         {"time": "22:30", "title": "출근 이동", "description": "병원 이동", "category": "REST", "highlight": null},
                         {"time": "23:00", "title": "NIGHT 근무 시작", "description": "야간 근무", "category": "WORK", "highlight": null}
-
                     ],
                     "recommendations": ["출근 전 30분 각성 시간을 확보하세요."]
                 }
                 """;
 
-        org.springframework.ai.chat.messages.AssistantMessage assistantMessage = new org.springframework.ai.chat.messages.AssistantMessage(mockAiJson);
-        Generation generation = new Generation(assistantMessage);
-        ChatResponse chatResponse = new ChatResponse(List.of(generation));
-        given(chatModel.call(any(Prompt.class))).willReturn(chatResponse);
+        ChatResponse generatorResponse = new ChatResponse(List.of(new Generation(new org.springframework.ai.chat.messages.AssistantMessage(brokenAiJson))));
+        ChatResponse criticResponse = new ChatResponse(List.of(new Generation(new org.springframework.ai.chat.messages.AssistantMessage(fixedAiJson))));
+        given(chatModel.call(any(Prompt.class))).willReturn(generatorResponse, criticResponse);
 
         // when
         RawTimelineAiResponse response = timelineAiGenerator.generateFutureTimeline(request);
@@ -138,7 +148,8 @@ class TimelineAiGeneratorTest {
 
         org.springframework.ai.chat.messages.AssistantMessage assistantMessage = new org.springframework.ai.chat.messages.AssistantMessage(mockAiJson);
         Generation generation = new Generation(assistantMessage);
-        given(chatModel.call(any(Prompt.class))).willReturn(new ChatResponse(List.of(generation)));
+        ChatResponse chatResponse = new ChatResponse(List.of(generation));
+        given(chatModel.call(any(Prompt.class))).willReturn(chatResponse, chatResponse);
 
         // when
         RawTimelineAiResponse response = timelineAiGenerator.generateTodayTimeline(request);
