@@ -38,7 +38,7 @@ class TimelineAiGeneratorTest {
 
     @BeforeEach
     void setUp() {
-        String dummyPrompt = "Test template {targetDate} {transitionType} {recommendedSleepBuffer} {nextWorkStart} {commuteMinutes} {adjustedCaffeineCutoff} {totalFreeHours} {format}";
+        String dummyPrompt = "Test template {targetDate} {transitionType} {recommendedSleepBuffer} {nextWorkStart} {commuteMinutes} {adjustedCaffeineCutoff} {totalFreeHours} {skeletonJson} {flexIntervals} {format}";
         ByteArrayResource resource = new ByteArrayResource(dummyPrompt.getBytes(StandardCharsets.UTF_8));
         ReflectionTestUtils.setField(timelineAiGenerator, "futurePromptResource", resource);
         ReflectionTestUtils.setField(timelineAiGenerator, "todayPromptResource", resource);
@@ -46,7 +46,7 @@ class TimelineAiGeneratorTest {
         String criticPrompt = "Critic template {draftJson}";
         ByteArrayResource criticResource = new ByteArrayResource(criticPrompt.getBytes(StandardCharsets.UTF_8));
         ReflectionTestUtils.setField(timelineAiGenerator, "criticPromptResource", criticResource);
-        
+        ReflectionTestUtils.setField(timelineAiGenerator, "slotCalculator", new TimelineSlotCalculator());
         ReflectionTestUtils.setField(timelineAiGenerator, "timelineModel", "gpt-4o-mini");
     }
 

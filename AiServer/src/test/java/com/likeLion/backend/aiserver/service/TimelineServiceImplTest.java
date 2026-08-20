@@ -3,6 +3,7 @@ package com.likeLion.backend.aiserver.service;
 import com.likeLion.backend.aiserver.dto.ShiftType;
 import com.likeLion.backend.aiserver.dto.timeline.*;
 import com.likeLion.backend.aiserver.service.layer.TimelineAiGenerator;
+import com.likeLion.backend.aiserver.service.layer.TimelineSlotCalculator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,9 @@ class TimelineServiceImplTest {
 
     @Mock
     private TimelineAiGenerator timelineAiGenerator;
+
+    @org.mockito.Spy
+    private TimelineSlotCalculator timelineSlotCalculator = new TimelineSlotCalculator();
 
     @InjectMocks
     private TimelineServiceImpl timelineService;
@@ -53,7 +57,7 @@ class TimelineServiceImplTest {
                 List.of("사전 낮잠을 꼭 확보하세요.", "야간 근무 전 수분 섭취를 늘리세요.")
         );
 
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
@@ -65,7 +69,7 @@ class TimelineServiceImplTest {
         assertThat(response.pageTitle()).contains("Night");
         assertThat(response.timelineItems()).hasSize(3);
         assertThat(response.recommendations()).hasSize(2);
-        verify(timelineAiGenerator).generateFutureTimeline(any());
+        verify(timelineAiGenerator).generateFutureTimeline(any(), any());
     }
 
     @Test
@@ -105,7 +109,7 @@ class TimelineServiceImplTest {
                 List.of("오늘은 수면 확보가 가장 중요해요.", "카페인은 14시 이후 섭취를 피해 주세요.")
         );
 
-        given(timelineAiGenerator.generateTodayTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateTodayTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
@@ -119,7 +123,7 @@ class TimelineServiceImplTest {
         assertThat(response.timelineItems().get(2).category()).isEqualTo(ActivityType.SLEEP);
 
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateTodayTimeline(captor.capture());
+        verify(timelineAiGenerator).generateTodayTimeline(captor.capture(), any());
         assertThat(captor.getValue().currentTime()).isEqualTo("23:00");
         assertThat(captor.getValue().userNotes()).isEqualTo("카페인 민감, 암막커튼 사용");
     }
@@ -144,14 +148,14 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "맞춤 계획", "서브타이틀", List.of(), List.of()
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().shiftTimes()).isNotNull();
         assertThat(captor.getValue().shiftTimes().dayStart()).isEqualTo("06:30");
         assertThat(captor.getValue().shiftTimes().dayEnd()).isEqualTo("14:30");
@@ -178,14 +182,14 @@ class TimelineServiceImplTest {
                 items,
                 List.of("오후에는 햇볕을 쬐세요.")
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().transitionType()).isEqualTo("NIGHT_TO_OFF");
         assertThat(response.targetDate()).isEqualTo(LocalDate.now());
     }
@@ -212,14 +216,14 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", List.of(), List.of()
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().currentWorkEnd()).isEqualTo("2026-08-17T15:00");
         assertThat(captor.getValue().nextWorkStart()).isEqualTo("2026-08-18T23:00");
         assertThat(captor.getValue().commuteMinutes()).isEqualTo(45);
@@ -249,14 +253,14 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", List.of(), List.of()
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().personalization()).isNotNull();
         assertThat(captor.getValue().personalization().recommendedSleepBuffer()).isEqualTo(30);
         assertThat(captor.getValue().personalization().adjustedCaffeineCutoff()).isEqualTo("14:30");
@@ -294,7 +298,7 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", unsortedItems, List.of("팁")
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
@@ -340,7 +344,7 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", items, List.of("팁")
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
@@ -376,7 +380,7 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", items, List.of("팁")
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);

@@ -25,6 +25,16 @@
 - NIGHT: {nightTime}
 - OFF: 휴무
 
+## 3.5. 규칙 엔진 산출 필수 고정 슬롯 (Base Skeleton) 및 여유 구간 (Flex Intervals)
+- **고정 필수 슬롯 (Fixed Base Slots)**:
+```json
+{skeletonJson}
+```
+  - **[절대 준수] 위 고정 슬롯들에 정의된 `time`과 `category`는 100% 그대로 유지해야 합니다.** 당신의 역할은 각 고정 슬롯에 어울리는 따뜻하고 친근한 한국어 `title`, 상세한 `description`, 중요한 수면/휴식 `highlight`를 작성하는 것입니다.
+- **자율 여유 시간대 (Flex Intervals)**:
+  - {flexIntervals}
+  - **[선택적 추가]** 위 여유 시간대가 존재하는 경우, 사용자의 개인 메모({userNotes}) 및 피로도를 고려하여 해당 시간대 내에 1~2개의 맞춤형 여가/휴식/가벼운 운동(REST, EXERCISE, NAP) 일정을 추가 생성할 수 있습니다.
+
 ## 4. 동적 역산 스케줄링 불변 규칙 (Hard Constraints & Non-Overlapping Rules)
 반드시 아래의 시간 역산 수식과 배타성(Zero-Overlap) 규칙을 준수하여 일정을 생성하세요.
 
