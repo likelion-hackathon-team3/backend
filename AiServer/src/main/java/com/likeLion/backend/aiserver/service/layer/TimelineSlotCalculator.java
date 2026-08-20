@@ -33,7 +33,20 @@ public class TimelineSlotCalculator {
             workEnd = targetDate.atTime(15, 0); // 기본 당일 15:00
         }
 
-        Duration totalDuration = Duration.between(workEnd, workStart);
+        // 0. 시작 기준점 계산 (currentTime이 workEnd보다 이후이면 currentTime부터 시작)
+        LocalDateTime effectiveStart = workEnd;
+        if (request.currentTime() != null && !request.currentTime().isBlank()) {
+            try {
+                LocalTime ct = LocalTime.parse(request.currentTime().trim(), TIME_FORMATTER);
+                LocalDateTime parsedCurrent = targetDate.atTime(ct);
+                if (parsedCurrent.isAfter(effectiveStart)) {
+                    effectiveStart = parsedCurrent;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        Duration totalDuration = Duration.between(effectiveStart, workStart);
         long totalFreeMinutes = Math.max(0, totalDuration.toMinutes());
         String totalFreeFormatted = formatDuration(totalDuration);
 
@@ -133,26 +146,38 @@ public class TimelineSlotCalculator {
                 ));
 
                 // 가용시간이 충분하면 낮 시간 여유 구간 등록
-                if (Duration.between(workEnd, napStart.minusMinutes(60)).toHours() >= 3) {
-                    flexIntervals.add(formatIso(workEnd.plusHours(1)) + " ~ " + formatIso(napStart.minusMinutes(60)) + " (자유 여유 시간)");
+                if (Duration.between(effectiveStart, napStart.minusMinutes(60)).toHours() >= 3) {
+                    flexIntervals.add(formatIso(effectiveStart.plusHours(1)) + " ~ " + formatIso(napStart.minusMinutes(60)) + " (자유 여유 시간)");
                 }
             }
             default -> {
                 // 일반적인 전환 (DAY_TO_DAY, DAY_TO_EVENING 등)
-                LocalDateTime sleepStart = workEnd.toLocalDate().atTime(23, 0);
-                if (sleepStart.isBefore(workEnd)) {
-                    sleepStart = workEnd.plusHours(1);
+                LocalDateTime sleepStart = targetDate.atTime(23, 30);
+                if (sleepStart.isBefore(effectiveStart)) {
+                    sleepStart = effectiveStart.plusMinutes(45);
                 }
-                LocalDateTime wakeTime = prepTime != null ? prepTime.minusMinutes(15) : workStart.minusMinutes(60);
-                long sleepMinutes = Math.max(360, Duration.between(sleepStart, wakeTime).toMinutes());
 
-                slots.add(new BaseSlotDto(
-                        formatIso(workEnd.plusHours(1)),
-                        ActivityType.MEAL,
-                        40L,
-                        "식사",
-                        null
-                ));
+                // 정상 수면 시간 상한(7.5~8시간) 적용
+                long maxSleepMinutes = 480L; // 최대 8시간
+                long naturalSleepMinutes = 450L; // 표준 7.5시간
+
+                LocalDateTime maxWakeTime = prepTime != null ? prepTime.minusMinutes(20) : workStart.minusMinutes(60);
+                long availableSleep = Duration.between(sleepStart, maxWakeTime).toMinutes();
+
+                long sleepMinutes = Math.min(naturalSleepMinutes, availableSleep);
+                LocalDateTime wakeTime = sleepStart.plusMinutes(sleepMinutes);
+
+                // 퇴근 직후/현재 직후 식사 (취침 최소 1시간 전)
+                LocalDateTime dinnerTime = effectiveStart.plusMinutes(30);
+                if (dinnerTime.plusMinutes(40).isBefore(sleepStart)) {
+                    slots.add(new BaseSlotDto(
+                            formatIso(dinnerTime),
+                            ActivityType.MEAL,
+                            40L,
+                            "저녁 식사 및 휴식",
+                            null
+                    ));
+                }
 
                 slots.add(new BaseSlotDto(
                         formatIso(sleepStart),
@@ -169,8 +194,29 @@ public class TimelineSlotCalculator {
                         "기상",
                         null
                 ));
+
+                // 기상 후 출근 준비(prepTime)까지 3시간 이상 여유가 있는 경우 (예: EVENING 출근)
+                if (prepTime != null && Duration.between(wakeTime, prepTime).toHours() >= 3) {
+                    LocalDateTime lunchTime = prepTime.minusHours(1).minusMinutes(30);
+                    slots.add(new BaseSlotDto(
+                            formatIso(lunchTime),
+                            ActivityType.MEAL,
+                            45L,
+                            "점심 식사",
+                            "출근 전 든든한 식사"
+                    ));
+
+                    flexIntervals.add(formatIso(wakeTime.plusMinutes(30)) + " ~ " + formatIso(lunchTime.minusMinutes(15)) + " (오전/낮 여유 시간)");
+                }
             }
         }
+
+        // 3. 과거 시간(effectiveStart 이전) 슬롯 자동 제외
+        final LocalDateTime startBoundary = effectiveStart;
+        slots.removeIf(slot -> {
+            LocalDateTime slotTime = parseDateTimeOrNull(slot.time());
+            return slotTime != null && slotTime.isBefore(startBoundary);
+        });
 
         // 3. 시간순 정렬
         slots.sort(Comparator.comparing(BaseSlotDto::time));

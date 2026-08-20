@@ -162,6 +162,6 @@ class TimelineAiGeneratorTest {
         String renderedPrompt = promptCaptor.getAllValues().get(0).getContents();
         assertThat(renderedPrompt).contains("30");
         assertThat(renderedPrompt).contains("14:30");
-        assertThat(renderedPrompt).contains("32시간");
+        assertThat(renderedPrompt).contains("31시간");
     }
 }

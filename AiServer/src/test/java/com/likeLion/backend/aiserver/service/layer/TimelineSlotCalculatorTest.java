@@ -92,4 +92,46 @@ class TimelineSlotCalculatorTest {
 
         assertThat(sleepSlot.durationMinutes()).isGreaterThanOrEqualTo(330L);
     }
+
+    @Test
+    @DisplayName("DAY -> EVENING 및 currentTime 20:30 입력 시 과거 일정은 제외되고 수면은 정상 7.5~8시간으로 제한된다")
+    void calculate_dayToEvening_withCurrentTime_capsSleepAndExcludesPastEvents() {
+        // given
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                LocalDate.of(2026, 8, 24),
+                ShiftType.DAY,
+                ShiftType.EVENING,
+                "DAY_TO_EVENING",
+                "20:30",
+                "2026-08-24T15:00",
+                "2026-08-25T15:00",
+                30,
+                null,
+                null,
+                null
+        );
+
+        // when
+        TimelineSkeletonDto skeleton = slotCalculator.calculateSkeleton(request);
+
+        // then
+        assertThat(skeleton).isNotNull();
+
+        // 1. 모든 슬롯의 시작 시각은 20:30 이상이어야 함
+        assertThat(skeleton.baseSlots()).allMatch(s -> s.time().compareTo("2026-08-24T20:30") >= 0);
+
+        // 2. 수면 시간은 14시간이 아니라 7.5~8시간(450~480분) 범위 내로 제한됨
+        BaseSlotDto sleepSlot = skeleton.baseSlots().stream()
+                .filter(s -> s.category() == ActivityType.SLEEP)
+                .findFirst()
+                .orElseThrow();
+        assertThat(sleepSlot.durationMinutes()).isLessThanOrEqualTo(480L);
+        assertThat(sleepSlot.durationMinutes()).isGreaterThanOrEqualTo(420L);
+
+        // 3. 익일 점심 식사(MEAL) 슬롯 및 오전 여유 구간이 생성됨
+        boolean hasLunch = skeleton.baseSlots().stream()
+                .anyMatch(s -> s.category() == ActivityType.MEAL && s.time().startsWith("2026-08-25"));
+        assertThat(hasLunch).isTrue();
+        assertThat(skeleton.flexIntervals()).isNotEmpty();
+    }
 }
