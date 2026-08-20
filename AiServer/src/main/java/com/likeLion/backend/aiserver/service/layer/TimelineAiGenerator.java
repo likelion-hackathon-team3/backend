@@ -16,8 +16,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.likeLion.backend.aiserver.dto.timeline.BaseSlotDto;
+import com.likeLion.backend.aiserver.dto.timeline.TimelineSkeletonDto;
+
+import com.likeLion.backend.aiserver.dto.ShiftType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -27,8 +33,10 @@ import java.util.Map;
 public class TimelineAiGenerator {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final ChatModel chatModel;
+    private final TimelineSlotCalculator slotCalculator;
 
     @Value("classpath:prompts/timeline_future.st")
     private Resource futurePromptResource;
@@ -36,16 +44,25 @@ public class TimelineAiGenerator {
     @Value("classpath:prompts/timeline_today.st")
     private Resource todayPromptResource;
 
+    @Value("classpath:prompts/timeline_critic.st")
+    private Resource criticPromptResource;
+
     @Value("${spring.ai.openai.chat.options.timeline-model:gpt-4o-mini}")
     private String timelineModel;
 
-    public TimelineAiGenerator(ChatModel chatModel) {
+    public TimelineAiGenerator(ChatModel chatModel, TimelineSlotCalculator slotCalculator) {
         this.chatModel = chatModel;
+        this.slotCalculator = slotCalculator != null ? slotCalculator : new TimelineSlotCalculator();
     }
 
     public RawTimelineAiResponse generateFutureTimeline(TimelineGenerateRequest request) {
+        TimelineSkeletonDto skeleton = slotCalculator.calculateSkeleton(request);
+        return generateFutureTimeline(request, skeleton);
+    }
+
+    public RawTimelineAiResponse generateFutureTimeline(TimelineGenerateRequest request, TimelineSkeletonDto skeleton) {
         BeanOutputConverter<RawTimelineAiResponse> outputConverter = new BeanOutputConverter<>(RawTimelineAiResponse.class);
-        Map<String, Object> modelMap = buildCommonModelMap(request, outputConverter);
+        Map<String, Object> modelMap = buildCommonModelMap(request, skeleton, outputConverter);
 
         String promptTemplateString = loadResourceAsString(futurePromptResource);
         PromptTemplate template = new PromptTemplate(promptTemplateString);
@@ -54,8 +71,13 @@ public class TimelineAiGenerator {
     }
 
     public RawTimelineAiResponse generateTodayTimeline(TimelineGenerateRequest request) {
+        TimelineSkeletonDto skeleton = slotCalculator.calculateSkeleton(request);
+        return generateTodayTimeline(request, skeleton);
+    }
+
+    public RawTimelineAiResponse generateTodayTimeline(TimelineGenerateRequest request, TimelineSkeletonDto skeleton) {
         BeanOutputConverter<RawTimelineAiResponse> outputConverter = new BeanOutputConverter<>(RawTimelineAiResponse.class);
-        Map<String, Object> modelMap = buildCommonModelMap(request, outputConverter);
+        Map<String, Object> modelMap = buildCommonModelMap(request, skeleton, outputConverter);
 
         String currentTime = (request.currentTime() != null && !request.currentTime().isBlank())
                 ? request.currentTime()
@@ -91,16 +113,35 @@ public class TimelineAiGenerator {
         }
     }
 
-    private Map<String, Object> buildCommonModelMap(TimelineGenerateRequest request, BeanOutputConverter<?> outputConverter) {
+    private Map<String, Object> buildCommonModelMap(TimelineGenerateRequest request, TimelineSkeletonDto skeleton, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
         Map<String, Object> map = new HashMap<>();
-        map.put("targetDate", request.targetDate() != null ? request.targetDate().toString() : "");
-        map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : "OFF");
-        map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : "OFF");
+        map.put("targetDate", request.targetDate() != null ? request.targetDate().toString() : LocalDate.now().toString());
+        map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : ShiftType.OFF.name());
+        map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : ShiftType.OFF.name());
         map.put("transitionType", request.transitionType() != null ? request.transitionType() : "OFF_TO_OFF");
         map.put("currentWorkEnd", (request.currentWorkEnd() != null && !request.currentWorkEnd().isBlank()) ? request.currentWorkEnd() : "해당 없음");
         map.put("nextWorkStart", (request.nextWorkStart() != null && !request.nextWorkStart().isBlank()) ? request.nextWorkStart() : "해당 없음");
         map.put("commuteMinutes", request.commuteMinutes() != null ? request.commuteMinutes() : 30);
         map.put("userNotes", (request.userNotes() != null && !request.userNotes().isBlank()) ? request.userNotes() : "없음");
+
+        String skeletonJson = "[]";
+        String flexIntervals = "없음";
+        String freeTime = "계산 불가";
+
+        if (skeleton != null) {
+            try {
+                skeletonJson = OBJECT_MAPPER.writeValueAsString(skeleton.baseSlots());
+            } catch (Exception ignored) {
+            }
+            if (skeleton.flexIntervals() != null && !skeleton.flexIntervals().isEmpty()) {
+                flexIntervals = String.join(", ", skeleton.flexIntervals());
+            }
+            freeTime = skeleton.totalFreeTimeFormatted() != null ? skeleton.totalFreeTimeFormatted() : "계산 불가";
+        }
+
+        map.put("skeletonJson", skeletonJson);
+        map.put("flexIntervals", flexIntervals);
+        map.put("totalFreeHours", freeTime);
 
         PersonalizationDto personalization = request.personalization();
         if (personalization != null) {

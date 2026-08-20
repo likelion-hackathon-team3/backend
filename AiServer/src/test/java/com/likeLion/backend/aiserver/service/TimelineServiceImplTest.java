@@ -3,6 +3,7 @@ package com.likeLion.backend.aiserver.service;
 import com.likeLion.backend.aiserver.dto.ShiftType;
 import com.likeLion.backend.aiserver.dto.timeline.*;
 import com.likeLion.backend.aiserver.service.layer.TimelineAiGenerator;
+import com.likeLion.backend.aiserver.service.layer.TimelineSlotCalculator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,9 @@ class TimelineServiceImplTest {
     @Mock
     private TimelineAiGenerator timelineAiGenerator;
 
+    @org.mockito.Spy
+    private TimelineSlotCalculator timelineSlotCalculator = new TimelineSlotCalculator();
+
     @InjectMocks
     private TimelineServiceImpl timelineService;
 
@@ -42,9 +46,9 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("15:00", "퇴근 후 휴식", "가벼운 휴식", ActivityType.REST, null),
-                new TimelineItemDto("18:00", "사전 수면", "NIGHT 근무 전 필수 낮잠", ActivityType.NAP, "권장 낮잠: 2시간"),
-                new TimelineItemDto("23:00", "NIGHT 근무 시작", "야간 근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-20T15:00", "퇴근 후 휴식", "가벼운 휴식", ActivityType.REST, null),
+                new TimelineItemDto("2026-08-20T18:00", "사전 수면", "NIGHT 근무 전 필수 낮잠", ActivityType.NAP, "권장 낮잠: 2시간"),
+                new TimelineItemDto("2026-08-20T23:00", "NIGHT 근무 시작", "야간 근무", ActivityType.WORK, null)
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "오늘부터 내일 Night 근무 전까지의 맞춤 계획이에요",
@@ -53,7 +57,7 @@ class TimelineServiceImplTest {
                 List.of("사전 낮잠을 꼭 확보하세요.", "야간 근무 전 수분 섭취를 늘리세요.")
         );
 
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
@@ -65,7 +69,7 @@ class TimelineServiceImplTest {
         assertThat(response.pageTitle()).contains("Night");
         assertThat(response.timelineItems()).hasSize(3);
         assertThat(response.recommendations()).hasSize(2);
-        verify(timelineAiGenerator).generateFutureTimeline(any());
+        verify(timelineAiGenerator).generateFutureTimeline(any(), any());
     }
 
     @Test
@@ -92,11 +96,11 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("23:30", "저녁 식사", "가벼운 식사", ActivityType.MEAL, null),
-                new TimelineItemDto("00:10", "취침 준비", "샤워 및 조명 낮추기", ActivityType.PREPARATION, null),
-                new TimelineItemDto("00:40", "취침", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
-                new TimelineItemDto("05:50", "기상", "햇빛 쬐기", ActivityType.WAKE_UP, null),
-                new TimelineItemDto("07:00", "DAY 근무 시작", "주간 근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-17T23:30", "저녁 식사", "가벼운 식사", ActivityType.MEAL, null),
+                new TimelineItemDto("2026-08-18T00:10", "취침 준비", "샤워 및 조명 낮추기", ActivityType.PREPARATION, null),
+                new TimelineItemDto("2026-08-18T00:40", "취침", "수면 목표 5시간 10분", ActivityType.SLEEP, "권장 수면 시간: 5시간 10분"),
+                new TimelineItemDto("2026-08-18T05:50", "기상", "햇빛 쬐기", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("2026-08-18T07:00", "DAY 근무 시작", "주간 근무", ActivityType.WORK, null)
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "오늘부터 내일 Day 근무 전까지의 맞춤 계획이에요",
@@ -105,7 +109,7 @@ class TimelineServiceImplTest {
                 List.of("오늘은 수면 확보가 가장 중요해요.", "카페인은 14시 이후 섭취를 피해 주세요.")
         );
 
-        given(timelineAiGenerator.generateTodayTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateTodayTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
@@ -119,7 +123,7 @@ class TimelineServiceImplTest {
         assertThat(response.timelineItems().get(2).category()).isEqualTo(ActivityType.SLEEP);
 
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateTodayTimeline(captor.capture());
+        verify(timelineAiGenerator).generateTodayTimeline(captor.capture(), any());
         assertThat(captor.getValue().currentTime()).isEqualTo("23:00");
         assertThat(captor.getValue().userNotes()).isEqualTo("카페인 민감, 암막커튼 사용");
     }
@@ -144,14 +148,14 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "맞춤 계획", "서브타이틀", List.of(), List.of()
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().shiftTimes()).isNotNull();
         assertThat(captor.getValue().shiftTimes().dayStart()).isEqualTo("06:30");
         assertThat(captor.getValue().shiftTimes().dayEnd()).isEqualTo("14:30");
@@ -170,7 +174,7 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("08:30", "퇴근 후 수면", "1차 수면", ActivityType.SLEEP, "권장 수면: 4시간 30분")
+                new TimelineItemDto("2026-08-20T08:30", "퇴근 후 수면", "1차 수면", ActivityType.SLEEP, "권장 수면: 4시간 30분")
         );
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "NIGHT 퇴근 후 OFF 일정 계획",
@@ -178,14 +182,14 @@ class TimelineServiceImplTest {
                 items,
                 List.of("오후에는 햇볕을 쬐세요.")
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().transitionType()).isEqualTo("NIGHT_TO_OFF");
         assertThat(response.targetDate()).isEqualTo(LocalDate.now());
     }
@@ -212,14 +216,14 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", List.of(), List.of()
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().currentWorkEnd()).isEqualTo("2026-08-17T15:00");
         assertThat(captor.getValue().nextWorkStart()).isEqualTo("2026-08-18T23:00");
         assertThat(captor.getValue().commuteMinutes()).isEqualTo(45);
@@ -249,14 +253,14 @@ class TimelineServiceImplTest {
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", List.of(), List.of()
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         timelineService.generateTimeline(request);
 
         // then
         ArgumentCaptor<TimelineGenerateRequest> captor = ArgumentCaptor.forClass(TimelineGenerateRequest.class);
-        verify(timelineAiGenerator).generateFutureTimeline(captor.capture());
+        verify(timelineAiGenerator).generateFutureTimeline(captor.capture(), any());
         assertThat(captor.getValue().personalization()).isNotNull();
         assertThat(captor.getValue().personalization().recommendedSleepBuffer()).isEqualTo(30);
         assertThat(captor.getValue().personalization().adjustedCaffeineCutoff()).isEqualTo("14:30");
@@ -282,29 +286,108 @@ class TimelineServiceImplTest {
                 null
         );
 
-        // 뒤섞인 순서: 20:30 쪽잠 -> 22:00 기상 -> 22:30 준비 -> 21:00 저녁식사 -> 23:00 근무
+        // 뒤섞인 순서
         List<TimelineItemDto> unsortedItems = List.of(
-                new TimelineItemDto("20:30", "쪽잠", "쪽잠", ActivityType.NAP, null),
-                new TimelineItemDto("22:00", "기상", "기상", ActivityType.WAKE_UP, null),
-                new TimelineItemDto("22:30", "출근 준비", "준비", ActivityType.PREPARATION, null),
-                new TimelineItemDto("21:00", "저녁 식사", "식사", ActivityType.MEAL, null),
-                new TimelineItemDto("23:00", "근무 시작", "근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-17T20:30", "쪽잠", "쪽잠", ActivityType.NAP, null),
+                new TimelineItemDto("2026-08-17T22:00", "기상", "기상", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("2026-08-17T22:30", "출근 준비", "준비", ActivityType.PREPARATION, null),
+                new TimelineItemDto("2026-08-17T21:00", "저녁 식사", "식사", ActivityType.MEAL, null),
+                new TimelineItemDto("2026-08-17T23:00", "근무 시작", "근무", ActivityType.WORK, null)
         );
 
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
                 "타이틀", "서브타이틀", unsortedItems, List.of("팁")
         );
-        given(timelineAiGenerator.generateFutureTimeline(any())).willReturn(rawResponse);
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
 
         // when
         TimelineGenerateResponse response = timelineService.generateTimeline(request);
 
         // then
         assertThat(response.timelineItems()).hasSize(5);
-        assertThat(response.timelineItems().get(0).time()).isEqualTo("20:30");
-        assertThat(response.timelineItems().get(1).time()).isEqualTo("21:00");
-        assertThat(response.timelineItems().get(2).time()).isEqualTo("22:00");
-        assertThat(response.timelineItems().get(3).time()).isEqualTo("22:30");
-        assertThat(response.timelineItems().get(4).time()).isEqualTo("23:00");
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("08/17 20:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("08/17 21:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("08/17 22:00");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("08/17 22:30");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("08/17 23:00");
+    }
+
+    @Test
+    @DisplayName("DAY(15:00 퇴근) -> EVENING(15:00 출근)에서 LocalDateTime 정렬이 정상 작동하고 MM/dd HH:mm으로 포맷팅된다")
+    void generateTimeline_workAlwaysPlacedAtLast() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 20);
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.EVENING,
+                "DAY_TO_EVENING",
+                null,
+                "2026-08-20T15:00",
+                "2026-08-21T15:00",
+                30,
+                null,
+                null,
+                null,
+                null
+        );
+
+        // 뒤죽박죽된 날짜 포함 순서
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("2026-08-21T15:00", "EVENING 근무 시작", "근무", ActivityType.WORK, null),
+                new TimelineItemDto("2026-08-20T23:30", "취침", "수면", ActivityType.SLEEP, null),
+                new TimelineItemDto("2026-08-21T08:00", "기상", "기상", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("2026-08-21T12:30", "점심 식사", "식사", ActivityType.MEAL, null),
+                new TimelineItemDto("2026-08-21T14:00", "출근 준비", "준비", ActivityType.PREPARATION, null)
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", items, List.of("팁")
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
+
+        // when
+        TimelineGenerateResponse response = timelineService.generateTimeline(request);
+
+        // then
+        assertThat(response.timelineItems()).hasSize(5);
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("08/20 23:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("08/21 08:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("08/21 12:30");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("08/21 14:00");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("08/21 15:00");
+        assertThat(response.timelineItems().get(4).category()).isEqualTo(ActivityType.WORK);
+    }
+
+    @Test
+    @DisplayName("null 카테고리가 전달되면 REST로 안전하게 정규화된다")
+    void generateTimeline_nullCategoryNormalizesToRest() {
+        // given
+        LocalDate targetDate = LocalDate.of(2026, 8, 20);
+        TimelineGenerateRequest request = new TimelineGenerateRequest(
+                targetDate,
+                ShiftType.DAY,
+                ShiftType.DAY,
+                "DAY_TO_DAY",
+                null
+        );
+
+        List<TimelineItemDto> items = List.of(
+                new TimelineItemDto("2026-08-20T18:00", "자유 시간", "여유 시간", null, null),
+                new TimelineItemDto("2026-08-21T07:00", "DAY 근무", "근무", ActivityType.WORK, null)
+        );
+
+        RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
+                "타이틀", "서브타이틀", items, List.of("팁")
+        );
+        given(timelineAiGenerator.generateFutureTimeline(any(), any())).willReturn(rawResponse);
+
+        // when
+        TimelineGenerateResponse response = timelineService.generateTimeline(request);
+
+        // then
+        assertThat(response.timelineItems()).hasSize(2);
+        assertThat(response.timelineItems().get(0).category()).isEqualTo(ActivityType.REST);
     }
 }
+

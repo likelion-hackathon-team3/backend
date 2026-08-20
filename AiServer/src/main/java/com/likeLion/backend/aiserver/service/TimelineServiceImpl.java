@@ -1,12 +1,15 @@
 package com.likeLion.backend.aiserver.service;
 
 import com.likeLion.backend.aiserver.dto.ShiftType;
+import com.likeLion.backend.aiserver.dto.timeline.ActivityType;
 import com.likeLion.backend.aiserver.dto.timeline.RawTimelineAiResponse;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineGenerateRequest;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineGenerateResponse;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineItemDto;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineMode;
+import com.likeLion.backend.aiserver.dto.timeline.TimelineSkeletonDto;
 import com.likeLion.backend.aiserver.service.layer.TimelineAiGenerator;
+import com.likeLion.backend.aiserver.service.layer.TimelineSlotCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,12 +25,13 @@ import java.util.List;
 public class TimelineServiceImpl implements TimelineService {
 
     private static final Logger log = LoggerFactory.getLogger(TimelineServiceImpl.class);
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final TimelineAiGenerator timelineAiGenerator;
+    private final TimelineSlotCalculator timelineSlotCalculator;
 
-    public TimelineServiceImpl(TimelineAiGenerator timelineAiGenerator) {
+    public TimelineServiceImpl(TimelineAiGenerator timelineAiGenerator, TimelineSlotCalculator timelineSlotCalculator) {
         this.timelineAiGenerator = timelineAiGenerator;
+        this.timelineSlotCalculator = timelineSlotCalculator != null ? timelineSlotCalculator : new TimelineSlotCalculator();
     }
 
     @Override
@@ -61,70 +65,92 @@ public class TimelineServiceImpl implements TimelineService {
 
         TimelineMode mode = (normalizedRequest.analysisResult() != null) ? TimelineMode.TODAY : TimelineMode.FUTURE;
 
+        TimelineSkeletonDto skeleton = timelineSlotCalculator.calculateSkeleton(normalizedRequest);
+
         RawTimelineAiResponse rawResponse;
         if (mode == TimelineMode.TODAY) {
-            rawResponse = timelineAiGenerator.generateTodayTimeline(normalizedRequest);
+            rawResponse = timelineAiGenerator.generateTodayTimeline(normalizedRequest, skeleton);
         } else {
-            rawResponse = timelineAiGenerator.generateFutureTimeline(normalizedRequest);
+            rawResponse = timelineAiGenerator.generateFutureTimeline(normalizedRequest, skeleton);
         }
 
-        List<TimelineItemDto> sortedItems = sortTimelineItems(rawResponse.timelineItems(), normalizedRequest.currentTime());
+        List<TimelineItemDto> sanitizedItems = sanitizeAndSortTimelineItems(rawResponse.timelineItems());
 
         return new TimelineGenerateResponse(
                 targetDate,
                 mode,
                 rawResponse.pageTitle(),
                 rawResponse.pageSubtitle(),
-                sortedItems,
+                sanitizedItems,
                 rawResponse.recommendations()
         );
     }
 
-    private List<TimelineItemDto> sortTimelineItems(List<TimelineItemDto> items, String currentTime) {
-        if (items == null || items.size() <= 1) {
-            return items;
+    private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("MM/dd HH:mm");
+
+    private List<TimelineItemDto> sanitizeAndSortTimelineItems(List<TimelineItemDto> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
         }
 
-        int anchorMinutes = parseAnchorMinutes(currentTime, items);
-
-        List<TimelineItemDto> sortedList = new ArrayList<>(items);
-        sortedList.sort(Comparator.comparingInt(item -> toOffsetMinutes(item.time(), anchorMinutes)));
-        return sortedList;
-    }
-
-    private int parseAnchorMinutes(String currentTime, List<TimelineItemDto> items) {
-        if (currentTime != null && !currentTime.isBlank()) {
-            try {
-                LocalTime time = LocalTime.parse(currentTime.trim(), TIME_FORMATTER);
-                return time.getHour() * 60 + time.getMinute();
-            } catch (Exception ignored) {
-            }
-        }
+        // 1. 카테고리 안전 보정 (null이거나 유효하지 않은 경우 REST로 기본 대체)
+        List<TimelineItemDto> normalizedList = new ArrayList<>(items.size());
         for (TimelineItemDto item : items) {
-            if (item != null && item.time() != null && !item.time().isBlank()) {
-                try {
-                    LocalTime time = LocalTime.parse(item.time().trim(), TIME_FORMATTER);
-                    return time.getHour() * 60 + time.getMinute();
-                } catch (Exception ignored) {
-                }
-            }
+            if (item == null) continue;
+            ActivityType category = item.category() != null ? item.category() : ActivityType.REST;
+            normalizedList.add(new TimelineItemDto(
+                    item.time(),
+                    item.title(),
+                    item.description(),
+                    category,
+                    item.highlight()
+            ));
         }
-        return 0;
+
+        if (normalizedList.size() <= 1) {
+            return formatDisplayList(normalizedList);
+        }
+
+        // 2. LocalDateTime 기반 자연 정렬 (파싱 실패 항목은 뒤로 배치)
+        normalizedList.sort(Comparator.comparing(
+                item -> parseLocalDateTimeOrNull(item.time()),
+                Comparator.nullsLast(Comparator.naturalOrder())
+        ));
+
+        // 3. 최종 출력 시 MM/dd HH:mm 포맷으로 변환
+        return formatDisplayList(normalizedList);
     }
 
-    private int toOffsetMinutes(String timeStr, int anchorMinutes) {
+    private List<TimelineItemDto> formatDisplayList(List<TimelineItemDto> list) {
+        List<TimelineItemDto> resultList = new ArrayList<>(list.size());
+        for (TimelineItemDto item : list) {
+            resultList.add(new TimelineItemDto(
+                    formatDisplayTime(item.time()),
+                    item.title(),
+                    item.description(),
+                    item.category(),
+                    item.highlight()
+            ));
+        }
+        return resultList;
+    }
+
+    private String formatDisplayTime(String timeStr) {
+        java.time.LocalDateTime ldt = parseLocalDateTimeOrNull(timeStr);
+        if (ldt != null) {
+            return ldt.format(DISPLAY_TIME_FORMATTER);
+        }
+        return timeStr;
+    }
+
+    private java.time.LocalDateTime parseLocalDateTimeOrNull(String timeStr) {
         if (timeStr == null || timeStr.isBlank()) {
-            return Integer.MAX_VALUE;
+            return null;
         }
         try {
-            LocalTime time = LocalTime.parse(timeStr.trim(), TIME_FORMATTER);
-            int minutes = time.getHour() * 60 + time.getMinute();
-            if (minutes < anchorMinutes) {
-                return minutes + 1440;
-            }
-            return minutes;
+            return java.time.LocalDateTime.parse(timeStr.trim());
         } catch (Exception e) {
-            return Integer.MAX_VALUE;
+            return null;
         }
     }
 }

@@ -51,4 +51,3 @@ public record ShiftTimesDto(
         return start + " ~ 익일 " + end;
     }
 }
-
