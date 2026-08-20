@@ -23,7 +23,6 @@ import java.util.List;
 public class TimelineServiceImpl implements TimelineService {
 
     private static final Logger log = LoggerFactory.getLogger(TimelineServiceImpl.class);
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final TimelineAiGenerator timelineAiGenerator;
 
@@ -108,71 +107,17 @@ public class TimelineServiceImpl implements TimelineService {
             return normalizedList;
         }
 
-        // 2. 앵커 기준 시간(시작 시각) 파악
-        int anchorMinutes = parseAnchorMinutes(currentTime, currentWorkEnd, normalizedList);
-
-        // 3. 시간 오프셋 기반 정렬 (WORK 항목은 다음 근무 시작이므로 앵커와 시간이 같거나 앞서면 다음날(+1440)로 간주)
-        normalizedList.sort(Comparator.comparingInt(item -> toOffsetMinutes(item, anchorMinutes)));
+        // 2. LocalDateTime 기반 자연 정렬
+        normalizedList.sort((i1, i2) -> {
+            try {
+                java.time.LocalDateTime t1 = java.time.LocalDateTime.parse(i1.time().trim());
+                java.time.LocalDateTime t2 = java.time.LocalDateTime.parse(i2.time().trim());
+                return t1.compareTo(t2);
+            } catch (Exception e) {
+                return 0; // 예외 발생 시 순서 유지
+            }
+        });
 
         return normalizedList;
-    }
-
-    private int parseAnchorMinutes(String currentTime, String currentWorkEnd, List<TimelineItemDto> items) {
-        // 1. currentWorkEnd가 가장 확실한 트랜지션의 시작점이므로 최우선 순위로 파싱
-        if (currentWorkEnd != null && !currentWorkEnd.isBlank() && !currentWorkEnd.equals("해당 없음")) {
-            String timePart = currentWorkEnd.contains("T") ? currentWorkEnd.substring(currentWorkEnd.indexOf("T") + 1) : currentWorkEnd;
-            if (timePart.length() >= 5) {
-                Integer minutes = parseMinutesOrNull(timePart.substring(0, 5));
-                if (minutes != null) return minutes;
-            }
-        }
-
-        // 2. currentWorkEnd가 없다면(예: OFF 상태) 현재 시간을 기준점으로 삼음
-        if (currentTime != null && !currentTime.isBlank()) {
-            Integer minutes = parseMinutesOrNull(currentTime);
-            if (minutes != null) return minutes;
-        }
-
-        // 3. 둘 다 불가능하다면 AI가 응답한 첫 번째 항목의 시간을 기준점으로 폴백
-        for (TimelineItemDto item : items) {
-            if (item != null && item.time() != null && !item.time().isBlank()) {
-                Integer minutes = parseMinutesOrNull(item.time());
-                if (minutes != null) return minutes;
-            }
-        }
-        
-        return 0; // 최후의 수단: 자정
-    }
-
-    private Integer parseMinutesOrNull(String timeStr) {
-        try {
-            LocalTime time = LocalTime.parse(timeStr.trim(), TIME_FORMATTER);
-            return time.getHour() * 60 + time.getMinute();
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private int toOffsetMinutes(TimelineItemDto item, int anchorMinutes) {
-        String timeStr = item.time();
-        if (timeStr == null || timeStr.isBlank()) {
-            return Integer.MAX_VALUE;
-        }
-        try {
-            LocalTime time = LocalTime.parse(timeStr.trim(), TIME_FORMATTER);
-            int minutes = time.getHour() * 60 + time.getMinute();
-
-            // WORK 항목은 다음 근무 시작을 나타내므로 앵커 시각 이하이면 24시간 뒤(+1440분)로 오프셋 부여
-            if (item.category() == ActivityType.WORK) {
-                return (minutes <= anchorMinutes) ? (minutes + 1440) : minutes;
-            }
-
-            if (minutes < anchorMinutes) {
-                return minutes + 1440;
-            }
-            return minutes;
-        } catch (Exception e) {
-            return Integer.MAX_VALUE;
-        }
     }
 }

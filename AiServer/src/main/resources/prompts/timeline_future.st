@@ -22,24 +22,24 @@
 ## 4. 동적 역산 스케줄링 불변 규칙 (Hard Constraints & Non-Overlapping Rules)
 반드시 아래의 시간 역산 수식과 배타성(Zero-Overlap) 규칙을 엄격히 준수하여 일정을 생성하세요.
 
-1. **시간순 정렬 및 타임라인 종결 규칙 (Chronological Order & Final WORK Constraint)**:
-   - **[필수] timelineItems 배열의 모든 항목은 반드시 시작 시각("time": "HH:mm") 오름차순으로 시간 흐름에 맞게 정렬하여 출력하세요.**
+0. **총 자유 시간 제약 (Total Free Time)**:
+   - 다음 출근까지 주어진 총 자유 시간은 **{totalFreeHours}**입니다.
+   - 모든 수면, 식사, 휴식 일정의 소요 시간 총합은 절대 이 자유 시간을 초과할 수 없으며, 이 한도 내에서 분배되어야 합니다.
+
+1. **날짜 포함 정렬 및 타임라인 종결 규칙 (Chronological Order & Final WORK Constraint)**:
+   - **[필수] timelineItems의 "time" 필드는 반드시 `YYYY-MM-DDTHH:mm` 형태의 ISO-8601 시각이어야 합니다.**
+   - **[필수] timelineItems 배열의 모든 항목은 반드시 "time" 오름차순으로 시간 흐름에 맞게 정렬하여 출력하세요.**
    - **다음 근무 출근({nextWorkStart})을 나타내는 WORK 항목은 반드시 타임라인의 맨 마지막 항목(Final Item)이어야 합니다.** (다음 근무가 OFF인 경우 제외)
    - **[절대 금지] WORK 항목 이후에는 WAKE_UP, PREPARATION, SLEEP, NAP, MEAL 등 어떠한 활동도 절대로 배치하지 마세요.** 모든 준비와 수면은 근무 시작 시각 이전에 완결되어야 합니다.
 
 2. **수면 독점 및 무충돌 불변식 (Zero Sleep-Work Collision)**:
-   - **수면(SLEEP) 및 쪽잠/낮잠(NAP)이 진행되는 시간 구간(예: 20:00~21:30) 도중에는 식사(MEAL), 휴식(REST) 등 어떠한 다른 일정 아이템도 절대로 중복 배치하지 마세요.**
+   - **수면(SLEEP) 및 쪽잠/낮잠(NAP)이 진행되는 시간 구간 도중에는 식사(MEAL), 휴식(REST) 등 어떠한 다른 일정 아이템도 절대로 중복 배치하지 마세요.**
    - **[절대 금지] 쪽잠(NAP)이나 수면(SLEEP) 시간이 출근 준비(PREPARATION)나 실제 근무 시작(WORK) 시간과 1분이라도 겹치거나 근무 시작 이후까지 이어져서는 안 됩니다.**
    - **식사 선행 원칙**: 식사(MEAL)는 수면/낮잠 시작 최소 1시간 전에 완료하도록 배치하세요.
 
 3. **출근 역산 한계 시각 공식 (Strict Reverse-Scheduling Formula)**:
    - **출근 준비 시작 시각 = 다음 출근 시각({nextWorkStart}) - 편도 통근 시간({commuteMinutes}분) - 최소 출근 준비 시간(30분)**
    - **수면/낮잠 종료 한계 = 출근 준비 시작 시각 이전에 반드시 기상(WAKE_UP) 및 종료되어야 합니다.**
-   - 예시 1: 다음 NIGHT 근무가 23:00 시작이고 통근 시간이 35분인 경우:
-     - 23:00 - 35분(통근) - 30분(준비) = 21:55가 낮잠 종료 마지노선입니다.
-     - 18:30 식사 → 20:00~21:30 낮잠(NAP) → 21:30 기상(WAKE_UP) → 21:55 출근 준비(PREPARATION) → 23:00 NIGHT 근무(WORK, 마지막 항목).
-   - 예시 2: DAY(15:00 퇴근) -> 익일 EVENING(15:00 출근), 통근 시간 30분인 경우:
-     - 20일 15:00 퇴근 후 저녁 휴식 → 23:30 취침(SLEEP) → 21일 08:00 기상(WAKE_UP) → 12:30 점심(MEAL) → (필요 시 13:00~13:40 짧은 쪽잠 및 기상) → 14:00 출근 준비(PREPARATION) → 15:00 EVENING 근무(WORK, 마지막 항목).
 
 4. **개인화 보정 제약조건 반영 지침 (Elastic Constraints)**:
    - **탄력적 수면 가산**: `{recommendedSleepBuffer}`분이 0보다 큰 경우, 기본 수면에 최대 해당 시간만큼 수면/휴식을 추가 확보하고 highlight(예: "권장 수면: 7시간 30분 (개인 회복 +30분 반영)")에 표시하세요.

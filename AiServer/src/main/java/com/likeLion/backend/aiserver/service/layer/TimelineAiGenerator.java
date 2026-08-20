@@ -105,6 +105,19 @@ public class TimelineAiGenerator {
         map.put("commuteMinutes", request.commuteMinutes() != null ? request.commuteMinutes() : 30);
         map.put("userNotes", (request.userNotes() != null && !request.userNotes().isBlank()) ? request.userNotes() : "없음");
 
+        String freeTime = "계산 불가";
+        if (request.currentWorkEnd() != null && request.nextWorkStart() != null
+                && !request.currentWorkEnd().isBlank() && !request.nextWorkStart().isBlank()) {
+            try {
+                java.time.LocalDateTime start = java.time.LocalDateTime.parse(request.currentWorkEnd());
+                java.time.LocalDateTime end = java.time.LocalDateTime.parse(request.nextWorkStart());
+                long hours = java.time.Duration.between(start, end).toHours();
+                freeTime = hours + "시간";
+            } catch (Exception ignored) {
+            }
+        }
+        map.put("totalFreeHours", freeTime);
+
         PersonalizationDto personalization = request.personalization();
         if (personalization != null) {
             map.put("recommendedSleepBuffer", String.valueOf(personalization.sleepBufferOrDefault()));

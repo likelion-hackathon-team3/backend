@@ -282,13 +282,13 @@ class TimelineServiceImplTest {
                 null
         );
 
-        // 뒤섞인 순서: 20:30 쪽잠 -> 22:00 기상 -> 22:30 준비 -> 21:00 저녁식사 -> 23:00 근무
+        // 뒤섞인 순서
         List<TimelineItemDto> unsortedItems = List.of(
-                new TimelineItemDto("20:30", "쪽잠", "쪽잠", ActivityType.NAP, null),
-                new TimelineItemDto("22:00", "기상", "기상", ActivityType.WAKE_UP, null),
-                new TimelineItemDto("22:30", "출근 준비", "준비", ActivityType.PREPARATION, null),
-                new TimelineItemDto("21:00", "저녁 식사", "식사", ActivityType.MEAL, null),
-                new TimelineItemDto("23:00", "근무 시작", "근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-17T20:30", "쪽잠", "쪽잠", ActivityType.NAP, null),
+                new TimelineItemDto("2026-08-17T22:00", "기상", "기상", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("2026-08-17T22:30", "출근 준비", "준비", ActivityType.PREPARATION, null),
+                new TimelineItemDto("2026-08-17T21:00", "저녁 식사", "식사", ActivityType.MEAL, null),
+                new TimelineItemDto("2026-08-17T23:00", "근무 시작", "근무", ActivityType.WORK, null)
         );
 
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
@@ -301,15 +301,15 @@ class TimelineServiceImplTest {
 
         // then
         assertThat(response.timelineItems()).hasSize(5);
-        assertThat(response.timelineItems().get(0).time()).isEqualTo("20:30");
-        assertThat(response.timelineItems().get(1).time()).isEqualTo("21:00");
-        assertThat(response.timelineItems().get(2).time()).isEqualTo("22:00");
-        assertThat(response.timelineItems().get(3).time()).isEqualTo("22:30");
-        assertThat(response.timelineItems().get(4).time()).isEqualTo("23:00");
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("2026-08-17T20:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("2026-08-17T21:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("2026-08-17T22:00");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("2026-08-17T22:30");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("2026-08-17T23:00");
     }
 
     @Test
-    @DisplayName("DAY(15:00 퇴근) -> EVENING(15:00 출근)에서 WORK(15:00)가 중간에 위치해도 항상 마지막 항목으로 재배치된다")
+    @DisplayName("DAY(15:00 퇴근) -> EVENING(15:00 출근)에서 LocalDateTime 정렬이 정상 작동한다")
     void generateTimeline_workAlwaysPlacedAtLast() {
         // given
         LocalDate targetDate = LocalDate.of(2026, 8, 20);
@@ -328,13 +328,13 @@ class TimelineServiceImplTest {
                 null
         );
 
-        // 잘못된 순서로 WORK(15:00)가 앞에 오고 뒤에 기상/출근준비가 오는 경우
+        // 뒤죽박죽된 날짜 포함 순서
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("15:00", "EVENING 근무 시작", "근무", ActivityType.WORK, null),
-                new TimelineItemDto("23:30", "취침", "수면", ActivityType.SLEEP, null),
-                new TimelineItemDto("08:00", "기상", "기상", ActivityType.WAKE_UP, null),
-                new TimelineItemDto("12:30", "점심 식사", "식사", ActivityType.MEAL, null),
-                new TimelineItemDto("14:00", "출근 준비", "준비", ActivityType.PREPARATION, null)
+                new TimelineItemDto("2026-08-21T15:00", "EVENING 근무 시작", "근무", ActivityType.WORK, null),
+                new TimelineItemDto("2026-08-20T23:30", "취침", "수면", ActivityType.SLEEP, null),
+                new TimelineItemDto("2026-08-21T08:00", "기상", "기상", ActivityType.WAKE_UP, null),
+                new TimelineItemDto("2026-08-21T12:30", "점심 식사", "식사", ActivityType.MEAL, null),
+                new TimelineItemDto("2026-08-21T14:00", "출근 준비", "준비", ActivityType.PREPARATION, null)
         );
 
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(
@@ -347,11 +347,11 @@ class TimelineServiceImplTest {
 
         // then
         assertThat(response.timelineItems()).hasSize(5);
-        assertThat(response.timelineItems().get(0).time()).isEqualTo("23:30");
-        assertThat(response.timelineItems().get(1).time()).isEqualTo("08:00");
-        assertThat(response.timelineItems().get(2).time()).isEqualTo("12:30");
-        assertThat(response.timelineItems().get(3).time()).isEqualTo("14:00");
-        assertThat(response.timelineItems().get(4).time()).isEqualTo("15:00");
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("2026-08-20T23:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("2026-08-21T08:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("2026-08-21T12:30");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("2026-08-21T14:00");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("2026-08-21T15:00");
         assertThat(response.timelineItems().get(4).category()).isEqualTo(ActivityType.WORK);
     }
 
@@ -369,8 +369,8 @@ class TimelineServiceImplTest {
         );
 
         List<TimelineItemDto> items = List.of(
-                new TimelineItemDto("18:00", "자유 시간", "여유 시간", null, null),
-                new TimelineItemDto("07:00", "DAY 근무", "근무", ActivityType.WORK, null)
+                new TimelineItemDto("2026-08-20T18:00", "자유 시간", "여유 시간", null, null),
+                new TimelineItemDto("2026-08-21T07:00", "DAY 근무", "근무", ActivityType.WORK, null)
         );
 
         RawTimelineAiResponse rawResponse = new RawTimelineAiResponse(

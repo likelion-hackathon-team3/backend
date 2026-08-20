@@ -14,10 +14,14 @@ Here is the DRAFTED TIMELINE JSON:
 ```
 
 RULES for fixing:
+0. Total Free Time Limit:
+   - The nurse has a total free time of {totalFreeHours} between shifts.
+   - Ensure the total duration of sleep, nap, and rest in the timeline does not exceed this available free time.
 1. Chronological order is mandatory. 
    - A timeline should conceptually flow forward in time.
+   - The "time" field MUST be patched to valid `YYYY-MM-DDTHH:mm` ISO-8601 strings if they are not already.
    - The final item in the timeline MUST be the `WORK` category starting at {nextWorkStart} (or preparation for it).
-   - If there is a `WAKE_UP` event, it MUST happen before `WORK`. If the drafted JSON placed `WAKE_UP` at 08:00 but `WORK` at 07:00, you MUST patch `WAKE_UP` to be before 07:00 (e.g., 05:30).
+   - If there is a `WAKE_UP` event, it MUST happen before `WORK`. If the drafted JSON placed `WAKE_UP` after `WORK`, you MUST patch `WAKE_UP` to be before it.
 2. Missing Critical Events:
    - If they are transitioning between shifts and need sleep, ensure there is a `SLEEP` block of adequate length.
 3. No omissions:
