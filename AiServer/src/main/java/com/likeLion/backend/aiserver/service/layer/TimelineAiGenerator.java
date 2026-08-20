@@ -20,8 +20,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.likeLion.backend.aiserver.dto.timeline.BaseSlotDto;
 import com.likeLion.backend.aiserver.dto.timeline.TimelineSkeletonDto;
 
+import com.likeLion.backend.aiserver.dto.ShiftType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -65,7 +67,7 @@ public class TimelineAiGenerator {
         String promptTemplateString = loadResourceAsString(futurePromptResource);
         PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
-        return executeSequentialPipeline(promptText, modelMap, outputConverter);
+        return callChatModel(promptText, outputConverter);
     }
 
     public RawTimelineAiResponse generateTodayTimeline(TimelineGenerateRequest request) {
@@ -100,7 +102,7 @@ public class TimelineAiGenerator {
         String promptTemplateString = loadResourceAsString(todayPromptResource);
         PromptTemplate template = new PromptTemplate(promptTemplateString);
         String promptText = template.render(modelMap);
-        return executeSequentialPipeline(promptText, modelMap, outputConverter);
+        return callChatModel(promptText, outputConverter);
     }
 
     private String loadResourceAsString(Resource resource) {
@@ -111,11 +113,11 @@ public class TimelineAiGenerator {
         }
     }
 
-    private Map<String, Object> buildCommonModelMap(TimelineGenerateRequest request, TimelineSkeletonDto skeleton, BeanOutputConverter<?> outputConverter) {
+    private Map<String, Object> buildCommonModelMap(TimelineGenerateRequest request, TimelineSkeletonDto skeleton, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
         Map<String, Object> map = new HashMap<>();
-        map.put("targetDate", request.targetDate() != null ? request.targetDate().toString() : "");
-        map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : "OFF");
-        map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : "OFF");
+        map.put("targetDate", request.targetDate() != null ? request.targetDate().toString() : LocalDate.now().toString());
+        map.put("currentShift", request.currentShift() != null ? request.currentShift().name() : ShiftType.OFF.name());
+        map.put("nextShift", request.nextShift() != null ? request.nextShift().name() : ShiftType.OFF.name());
         map.put("transitionType", request.transitionType() != null ? request.transitionType() : "OFF_TO_OFF");
         map.put("currentWorkEnd", (request.currentWorkEnd() != null && !request.currentWorkEnd().isBlank()) ? request.currentWorkEnd() : "해당 없음");
         map.put("nextWorkStart", (request.nextWorkStart() != null && !request.nextWorkStart().isBlank()) ? request.nextWorkStart() : "해당 없음");
@@ -165,7 +167,7 @@ public class TimelineAiGenerator {
         return map;
     }
 
-    private RawTimelineAiResponse executeSequentialPipeline(String generatorPromptText, Map<String, Object> modelMap, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
+    private RawTimelineAiResponse callChatModel(String promptText, BeanOutputConverter<RawTimelineAiResponse> outputConverter) {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(timelineModel)
                 .temperature(0.3)
@@ -174,25 +176,12 @@ public class TimelineAiGenerator {
                         .build())
                 .build();
 
-        // 1. Generator AI Call
-        String draftJson = callModelForText(generatorPromptText, options);
-
-        // 2. Critic AI Call
-        modelMap.put("draftJson", draftJson);
-        String criticPromptTemplateString = loadResourceAsString(criticPromptResource);
-        PromptTemplate criticTemplate = new PromptTemplate(criticPromptTemplateString);
-        String criticPromptText = criticTemplate.render(modelMap);
-
-        String finalJson = callModelForText(criticPromptText, options);
-
-        return outputConverter.convert(finalJson);
-    }
-
-    private String callModelForText(String promptText, OpenAiChatOptions options) {
-        UserMessage message = UserMessage.builder()
+        UserMessage userMessage = UserMessage.builder()
                 .text(promptText)
                 .build();
-        var response = chatModel.call(new Prompt(message, options));
-        return response.getResult().getOutput().getText();
+
+        var response = chatModel.call(new Prompt(userMessage, options));
+        String content = response.getResult().getOutput().getText();
+        return outputConverter.convert(content);
     }
 }

@@ -95,9 +95,8 @@ class TimelineAiGeneratorTest {
                 }
                 """;
 
-        ChatResponse generatorResponse = new ChatResponse(List.of(new Generation(new org.springframework.ai.chat.messages.AssistantMessage(brokenAiJson))));
-        ChatResponse criticResponse = new ChatResponse(List.of(new Generation(new org.springframework.ai.chat.messages.AssistantMessage(fixedAiJson))));
-        given(chatModel.call(any(Prompt.class))).willReturn(generatorResponse, criticResponse);
+        ChatResponse chatResponse = new ChatResponse(List.of(new Generation(new org.springframework.ai.chat.messages.AssistantMessage(fixedAiJson))));
+        given(chatModel.call(any(Prompt.class))).willReturn(chatResponse);
 
         // when
         RawTimelineAiResponse response = timelineAiGenerator.generateFutureTimeline(request);
@@ -108,9 +107,9 @@ class TimelineAiGeneratorTest {
         assertThat(response.timelineItems()).hasSize(5);
 
         ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
-        org.mockito.Mockito.verify(chatModel, org.mockito.Mockito.times(2)).call(promptCaptor.capture());
+        org.mockito.Mockito.verify(chatModel).call(promptCaptor.capture());
 
-        Prompt executedPrompt = promptCaptor.getAllValues().get(1);
+        Prompt executedPrompt = promptCaptor.getValue();
         OpenAiChatOptions options = (OpenAiChatOptions) executedPrompt.getOptions();
         assertThat(options.getModel()).isEqualTo("gpt-4o-mini");
         assertThat(options.getTemperature()).isEqualTo(0.3);
@@ -149,7 +148,7 @@ class TimelineAiGeneratorTest {
         org.springframework.ai.chat.messages.AssistantMessage assistantMessage = new org.springframework.ai.chat.messages.AssistantMessage(mockAiJson);
         Generation generation = new Generation(assistantMessage);
         ChatResponse chatResponse = new ChatResponse(List.of(generation));
-        given(chatModel.call(any(Prompt.class))).willReturn(chatResponse, chatResponse);
+        given(chatModel.call(any(Prompt.class))).willReturn(chatResponse);
 
         // when
         RawTimelineAiResponse response = timelineAiGenerator.generateTodayTimeline(request);
@@ -157,9 +156,9 @@ class TimelineAiGeneratorTest {
         // then
         assertThat(response).isNotNull();
         ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
-        org.mockito.Mockito.verify(chatModel, org.mockito.Mockito.times(2)).call(promptCaptor.capture());
+        org.mockito.Mockito.verify(chatModel).call(promptCaptor.capture());
 
-        String renderedPrompt = promptCaptor.getAllValues().get(0).getContents();
+        String renderedPrompt = promptCaptor.getValue().getContents();
         assertThat(renderedPrompt).contains("30");
         assertThat(renderedPrompt).contains("14:30");
         assertThat(renderedPrompt).contains("31시간");
