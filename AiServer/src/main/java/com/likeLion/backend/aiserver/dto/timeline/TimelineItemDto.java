@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "타임라인 개별 일정 아이템 DTO")
 public record TimelineItemDto(
-        @Schema(description = "시작/해당 일시 (ISO-8601)", example = "2026-08-20T23:00")
+        @Schema(description = "시작/해당 일시 (MM/dd HH:mm)", example = "08/20 23:00")
         String time,
 
         @Schema(description = "일정 제목", example = "취침 (권장 취침 시간)")

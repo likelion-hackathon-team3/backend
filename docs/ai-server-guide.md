@@ -171,7 +171,7 @@ public static final long DEFAULT_PREP_MINUTES = 30L;   // 30분 (표준 출근 �
 ```
 
 - **표준 카테고리 (8종)**: `SLEEP`, `NAP`, `PREPARATION`, `WAKE_UP`, `MEAL`, `WORK`, `REST`, `EXERCISE`
-- **시간 표현 포맷**: `YYYY-MM-DDTHH:mm` (ISO-8601)
+- **시간 표현 포맷**: `MM/dd HH:mm` (예: `08/20 15:40`, 내부 연산 및 정렬은 ISO-8601 LocalDateTime 수행 후 최종 클라이언트 응답 시 경량 포맷 변환)
 
 ---
 

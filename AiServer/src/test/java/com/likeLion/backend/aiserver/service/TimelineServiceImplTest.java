@@ -305,15 +305,15 @@ class TimelineServiceImplTest {
 
         // then
         assertThat(response.timelineItems()).hasSize(5);
-        assertThat(response.timelineItems().get(0).time()).isEqualTo("2026-08-17T20:30");
-        assertThat(response.timelineItems().get(1).time()).isEqualTo("2026-08-17T21:00");
-        assertThat(response.timelineItems().get(2).time()).isEqualTo("2026-08-17T22:00");
-        assertThat(response.timelineItems().get(3).time()).isEqualTo("2026-08-17T22:30");
-        assertThat(response.timelineItems().get(4).time()).isEqualTo("2026-08-17T23:00");
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("08/17 20:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("08/17 21:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("08/17 22:00");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("08/17 22:30");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("08/17 23:00");
     }
 
     @Test
-    @DisplayName("DAY(15:00 퇴근) -> EVENING(15:00 출근)에서 LocalDateTime 정렬이 정상 작동한다")
+    @DisplayName("DAY(15:00 퇴근) -> EVENING(15:00 출근)에서 LocalDateTime 정렬이 정상 작동하고 MM/dd HH:mm으로 포맷팅된다")
     void generateTimeline_workAlwaysPlacedAtLast() {
         // given
         LocalDate targetDate = LocalDate.of(2026, 8, 20);
@@ -351,11 +351,11 @@ class TimelineServiceImplTest {
 
         // then
         assertThat(response.timelineItems()).hasSize(5);
-        assertThat(response.timelineItems().get(0).time()).isEqualTo("2026-08-20T23:30");
-        assertThat(response.timelineItems().get(1).time()).isEqualTo("2026-08-21T08:00");
-        assertThat(response.timelineItems().get(2).time()).isEqualTo("2026-08-21T12:30");
-        assertThat(response.timelineItems().get(3).time()).isEqualTo("2026-08-21T14:00");
-        assertThat(response.timelineItems().get(4).time()).isEqualTo("2026-08-21T15:00");
+        assertThat(response.timelineItems().get(0).time()).isEqualTo("08/20 23:30");
+        assertThat(response.timelineItems().get(1).time()).isEqualTo("08/21 08:00");
+        assertThat(response.timelineItems().get(2).time()).isEqualTo("08/21 12:30");
+        assertThat(response.timelineItems().get(3).time()).isEqualTo("08/21 14:00");
+        assertThat(response.timelineItems().get(4).time()).isEqualTo("08/21 15:00");
         assertThat(response.timelineItems().get(4).category()).isEqualTo(ActivityType.WORK);
     }
 
